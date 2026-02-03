@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+
+<html class="light" dir="rtl" lang="ar"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Homepage Variant 1 - Clinic Queue</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#13a4ec",
+                        "background-light": "#f6f7f8",
+                        "background-dark": "#101c22",
+                    },
+                    fontFamily: {
+                        "display": ["Inter", "sans-serif"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        body {
+            font-family: 'Inter', 'Noto Sans Arabic', sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark font-display">
+<div class="relative mx-auto max-w-[430px] min-h-screen bg-white dark:bg-background-dark shadow-2xl overflow-x-hidden pb-24">
+<!-- TopAppBar -->
+<div class="flex items-center bg-white dark:bg-background-dark p-4 pb-2 justify-between sticky top-0 z-10">
+<div class="flex items-center gap-3">
+<div class="bg-center bg-no-repeat aspect-square bg-cover rounded-full size-10 border-2 border-primary/20" data-alt="User profile picture with medical theme" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuCXmZnRUeIENAKHYERFTqL1eA8wk-0WR71oX8zQKQDGXqzGYNk2gwu-U7JvUJx_GhCGh9jT8PHmaVLZKgWuZsTr_WyzHgFbZsgM1etTskv9Hr4e5uWBv3mxKJesYa9EMoOtRVWIhaUWR2Eb43NpxXPl_DtCYbLo598Kq7RS1Br2MJuEf-lTfLpTFMYJ7K6OCk65PEfd3ydKPtOIaP-Cb6bhPCGx9kYwBTiW5K9wHhcFbyLqSSRL-pEKPUSU4yYUgsCNI7Q6rAslCkQ");'>
+</div>
+<div class="flex flex-col">
+<p class="text-xs text-[#4c809a] dark:text-slate-400">مرحباً بك</p>
+<h2 class="text-[#0d171b] dark:text-white text-lg font-bold leading-tight tracking-[-0.015em]">أحمد السعدني</h2>
+</div>
+</div>
+<div class="flex items-center gap-2">
+<button class="flex size-10 cursor-pointer items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800 text-[#0d171b] dark:text-white">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+</div>
+</div>
+<!-- SearchBar -->
+<div class="px-4 py-3">
+<label class="flex flex-col min-w-40 h-12 w-full">
+<div class="flex w-full flex-1 items-stretch rounded-xl h-full shadow-sm">
+<div class="text-[#4c809a] flex border-none bg-white dark:bg-slate-800 items-center justify-center pr-4 rounded-r-xl">
+<span class="material-symbols-outlined">search</span>
+</div>
+<input class="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-l-xl text-[#0d171b] dark:text-white focus:outline-0 focus:ring-0 border-none bg-white dark:bg-slate-800 placeholder:text-[#4c809a] px-4 text-right text-base font-normal leading-normal" placeholder="ابحث عن طبيب أو عيادة..."/>
+</div>
+</label>
+</div>
+<!-- Hero Card (Book Now) -->
+<div class="p-4 @container">
+<div class="flex flex-col items-stretch justify-start rounded-xl @xl:flex-row @xl:items-start shadow-lg bg-primary overflow-hidden relative">
+<div class="absolute top-0 left-0 w-full h-full opacity-10 pointer-events-none" style="background-image: radial-gradient(circle at 20% 50%, rgba(255,255,255,0.4) 0%, transparent 50%);"></div>
+<div class="flex w-full min-w-72 grow flex-col items-start justify-center gap-2 py-6 px-6 z-10">
+<h3 class="text-white text-xl font-bold leading-tight tracking-tight">احجز موعدك الآن</h3>
+<p class="text-white/90 text-sm font-normal leading-relaxed max-w-[200px]">تجنب الزحام واحجز دورك عن بعد بكل سهولة وأمان</p>
+<button class="mt-2 flex min-w-[120px] cursor-pointer items-center justify-center overflow-hidden rounded-full h-10 px-6 bg-white text-primary text-sm font-bold leading-normal shadow-sm">
+<span>احجز الآن</span>
+</button>
+</div>
+<div class="w-full bg-center bg-no-repeat aspect-[16/9] bg-cover opacity-80" data-alt="Modern clinic interior with blue lighting" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuBxMlvVUBMtPD8RjwGPlmnsWH7pE9vaB6DOcCKS5UdUS6P6D8Q6W09zol_rXnICFQGi1rdFbFlJS1YSnoVvGKkKwG3FhIyIIbx1I6ShXgYs84yy1-aDK73Rkx5X8w0Qz_HcQaK1extAa1LzKp4sGH83n0hrdS4WSaAiWomnwoGCXcBjwmFS7ZICJ5jZ3XOtPI9HNMoCC4yfv2GZSrESJsdgqQwB6EjuttxbBcVBKU9obEJCLHP2Z_uUyXqwe7Zn5jO3U8vzl0ftweA");'>
+</div>
+</div>
+</div>
+<!-- Active Token Widget (Section Header + Card) -->
+<div class="mt-2">
+<div class="flex items-center justify-between px-4 pb-2 pt-4">
+<h3 class="text-[#0d171b] dark:text-white text-lg font-bold leading-tight tracking-[-0.015em]">تذكرتك النشطة</h3>
+<span class="flex items-center gap-1 text-xs font-bold text-green-500 bg-green-50 dark:bg-green-500/10 px-2 py-1 rounded-full">
+<span class="w-2 h-2 rounded-full bg-green-500"></span>
+                    مباشر
+                </span>
+</div>
+<div class="px-4">
+<div class="p-4 flex flex-col gap-4 rounded-xl border border-primary/10 bg-primary/5 dark:bg-primary/10 shadow-sm">
+<div class="flex items-stretch justify-between gap-4">
+<div class="flex flex-[2_2_0px] flex-col gap-3">
+<div class="flex flex-col gap-1">
+<p class="text-[#4c809a] dark:text-primary text-xs font-bold uppercase tracking-wider">عيادة الأمل العامة</p>
+<div class="flex items-baseline gap-2">
+<p class="text-[#0d171b] dark:text-white text-2xl font-black">A-102</p>
+<p class="text-[#4c809a] dark:text-slate-400 text-sm">رقم التذكرة</p>
+</div>
+<div class="flex items-center gap-2 mt-1">
+<span class="material-symbols-outlined text-primary text-sm">schedule</span>
+<p class="text-[#0d171b] dark:text-slate-300 text-sm font-medium">الوقت المقدر: ١٥ دقيقة</p>
+</div>
+</div>
+<div class="flex gap-2">
+<button class="flex flex-1 cursor-pointer items-center justify-center rounded-lg h-9 bg-white dark:bg-slate-800 text-primary border border-primary/20 gap-2 text-sm font-bold">
+<span class="material-symbols-outlined text-[18px]">location_on</span>
+<span>تتبع الموقع</span>
+</button>
+<button class="flex flex-1 cursor-pointer items-center justify-center rounded-lg h-9 bg-primary text-white gap-2 text-sm font-bold shadow-sm">
+<span>التفاصيل</span>
+</button>
+</div>
+</div>
+<div class="w-24 h-24 bg-center bg-no-repeat bg-cover rounded-xl shadow-inner self-center border-2 border-white dark:border-slate-700" data-alt="Map location showing clinic position" data-location="Cairo, Egypt" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuDrsjT6__8LCTuaI8F8wb4I1wGsPZ4-Ys6_l-sZDZup1KYbU_zEGOWymxxPpI6W6dvRp26J6tolWJj_63CLP2BEZ_13NyHTtmMm4EpwM_tYrdBqYBv-CQ9740k4PfEU9YUFc8WA3oIfT1ZkwE6JsCL_6UFd4rXaS-bD6Bac2jrspgw_t-HCsglL3HU18U9iYndqNM9oKnqIxdrLU64wLjwQGW4Iemud4AI8DId8BDGO9skOZOQCXy3tjCcNTM59PwT1nxvnKpGa5sU");'>
+</div>
+</div>
+<div class="bg-white/50 dark:bg-black/20 p-2 rounded-lg flex items-center gap-3">
+<span class="material-symbols-outlined text-orange-500">warning</span>
+<p class="text-xs text-[#0d171b] dark:text-slate-300">أنت بعيد جداً عن العيادة، تحرك قريباً ليتم تفعيل دورك تلقائياً.</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Featured Doctors / Nearby Clinics -->
+<div class="mt-4">
+<div class="flex items-center justify-between px-4 pb-2 pt-4">
+<h3 class="text-[#0d171b] dark:text-white text-lg font-bold leading-tight">العيادات القريبة</h3>
+<button class="text-primary text-sm font-bold">عرض الكل</button>
+</div>
+<div class="flex overflow-x-auto gap-4 px-4 pb-6 no-scrollbar">
+<!-- Clinic Card 1 -->
+<div class="min-w-[200px] bg-white dark:bg-slate-800 rounded-xl shadow-md overflow-hidden flex-shrink-0 border border-slate-100 dark:border-slate-700">
+<div class="h-28 bg-cover bg-center" data-alt="Pediatric clinic waiting area" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuBKOIeLIKepHlnut7czlbSO_RLxBzZlI9o_Puey8z1_Hj8mQ43BAeb89OOzmgQewCvaiDoeOGMQISKL5YYHg0O3X0n9TgzfRQu0Swzv1go0HeNkGXC8yfUxn8rbzFcKqlYQg2frtBcb5XPqSvOBnLyKBPeqLY43coAZAKwZUYlAFzBd_EqPwTyVr_Ox4jXgCLK8VbqqlMp2SkGMaEB4Kgtbb-ZXqW8O_G67_I-dItku4DZXkVO8HOevv-RYuQx71TRpcITwODlh3zo");'></div>
+<div class="p-3">
+<p class="text-[#0d171b] dark:text-white font-bold text-sm">مجمع صحتي الطبي</p>
+<div class="flex items-center justify-between mt-2">
+<span class="text-xs text-[#4c809a] dark:text-slate-400">على بعد ١.٢ كم</span>
+<span class="text-xs font-bold text-primary">٢٠ دقيقة</span>
+</div>
+</div>
+</div>
+<!-- Clinic Card 2 -->
+<div class="min-w-[200px] bg-white dark:bg-slate-800 rounded-xl shadow-md overflow-hidden flex-shrink-0 border border-slate-100 dark:border-slate-700">
+<div class="h-28 bg-cover bg-center" data-alt="Modern dental clinic office" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuApZhBn_8-t5zUy_zWd68pxUdVuTxXuYuL0Weq-fIr2j8BJGJYghoDYpGcjK5h_gaIpzxR6l5RL_lAzWF5Ce9s2N_zPTvK1SE2VCug2ChK8UL-F4E5u2kxZVwk9D5KnNG1BVZiBFEbAoXMZSTlFQN166Lzt6J1tRZzMeemCrhHag5JU8feqTA16NZ2PdqWm8TgCeP7p_PEDcBNTO_OiDXuglLL8jRn00kKwbyOk50fqE6efcdsU78neTu2PeSeHUHDHRi5VwR_w0Z4");'></div>
+<div class="p-3">
+<p class="text-[#0d171b] dark:text-white font-bold text-sm">مركز الابتسامة للأسنان</p>
+<div class="flex items-center justify-between mt-2">
+<span class="text-xs text-[#4c809a] dark:text-slate-400">على بعد ٣.٥ كم</span>
+<span class="text-xs font-bold text-primary">٥ دقائق</span>
+</div>
+</div>
+</div>
+<!-- Clinic Card 3 -->
+<div class="min-w-[200px] bg-white dark:bg-slate-800 rounded-xl shadow-md overflow-hidden flex-shrink-0 border border-slate-100 dark:border-slate-700">
+<div class="h-28 bg-cover bg-center" data-alt="Diagnostic lab reception" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuC7LYu1dujnPlUOGGqq9uNhvJIJxWB25hj5vxdcbWHHPMNBF29XDXmCPTy8fhsAWspdyDhfgaqLH3J6s8qx6BvW-IZsPxzsDiZX69fitF1m8HxNMD0C0NH5u_Hj9qWRpSwZDws4QH55StKMyAh6FekEt9gMSUR33s9dDv4hfvLM8yYINk6Ywebum0IOPiO1x5w5_7wP1n3VlrgZbiU-ie7Mso79MpqZf8j3EGiN2SlUqnFlK5DqCbdoTc8A8QJO_Jt--8M-7SEB71E");'></div>
+<div class="p-3">
+<p class="text-[#0d171b] dark:text-white font-bold text-sm">مختبرات تكنو لاب</p>
+<div class="flex items-center justify-between mt-2">
+<span class="text-xs text-[#4c809a] dark:text-slate-400">على بعد ٥.٠ كم</span>
+<span class="text-xs font-bold text-primary">١٠ دقائق</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Bottom Navigation Bar -->
+<div class="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[430px] bg-white/80 dark:bg-background-dark/80 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 px-6 py-3 flex justify-between items-center z-20">
+<button class="flex flex-col items-center gap-1 text-primary">
+<span class="material-symbols-outlined text-[28px]">home</span>
+<span class="text-[10px] font-bold">الرئيسية</span>
+</button>
+<button class="flex flex-col items-center gap-1 text-[#4c809a] dark:text-slate-400">
+<span class="material-symbols-outlined text-[28px]">receipt_long</span>
+<span class="text-[10px] font-medium">حجوزاتي</span>
+</button>
+<button class="flex flex-col items-center gap-1 text-[#4c809a] dark:text-slate-400">
+<span class="material-symbols-outlined text-[28px]">account_balance_wallet</span>
+<span class="text-[10px] font-medium">المحفظة</span>
+</button>
+<button class="flex flex-col items-center gap-1 text-[#4c809a] dark:text-slate-400">
+<span class="material-symbols-outlined text-[28px]">person</span>
+<span class="text-[10px] font-medium">حسابي</span>
+</button>
+</div>
+</div>
+<style>
+        /* Custom styles for clean scroll on mobile */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+</body></html>

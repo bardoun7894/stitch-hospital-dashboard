@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Payment and Confirmation</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Noto+Sans+Arabic:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "primary": "#13a4ec",
+              "background-light": "#f6f7f8",
+              "background-dark": "#101c22",
+              "surface-light": "#ffffff",
+              "surface-dark": "#1a2c35",
+            },
+            fontFamily: {
+              "display": ["Inter", "Noto Sans Arabic", "sans-serif"]
+            },
+            borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings:
+            'FILL' 0,
+            'wght' 400,
+            'GRAD' 0,
+            'opsz' 24
+        }
+        .material-symbols-outlined.filled {
+            font-variation-settings:
+            'FILL' 1,
+            'wght' 400,
+            'GRAD' 0,
+            'opsz' 24
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-slate-100 antialiased">
+<div class="relative flex h-full min-h-screen w-full flex-col overflow-x-hidden">
+<!-- Top App Bar -->
+<div class="sticky top-0 z-50 flex items-center bg-background-light/95 dark:bg-background-dark/95 backdrop-blur-sm p-4 pb-2 justify-between">
+<button class="text-slate-900 dark:text-white flex size-12 shrink-0 items-center justify-center rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors">
+<span class="material-symbols-outlined">arrow_back</span>
+</button>
+<h2 class="text-slate-900 dark:text-white text-lg font-bold leading-tight tracking-[-0.015em] flex-1 text-center pr-12">Confirmation</h2>
+</div>
+<div class="flex-1 flex flex-col p-4 pb-32 max-w-lg mx-auto w-full">
+<!-- Status Header -->
+<div class="flex flex-col items-center justify-center pt-6 pb-8">
+<div class="flex items-center justify-center w-20 h-20 rounded-full bg-primary/10 mb-4">
+<span class="material-symbols-outlined filled text-primary text-5xl">check_circle</span>
+</div>
+<h2 class="text-slate-900 dark:text-white tracking-tight text-[28px] font-bold leading-tight text-center">Booking Accepted</h2>
+<p class="text-slate-500 dark:text-slate-400 text-sm mt-2">Your appointment is reserved.</p>
+</div>
+<!-- Booking Summary Card -->
+<div class="bg-surface-light dark:bg-surface-dark rounded-xl shadow-sm border border-slate-100 dark:border-slate-800 overflow-hidden mb-6">
+<!-- Doctor Info -->
+<div class="p-4">
+<div class="flex items-stretch justify-between gap-4">
+<div class="flex flex-col justify-center gap-1 flex-[2_2_0px]">
+<p class="text-slate-900 dark:text-white text-base font-bold leading-tight">Dr. Sarah Smith</p>
+<p class="text-primary text-sm font-medium leading-normal">General Practitioner</p>
+<div class="flex items-center gap-1 mt-1">
+<span class="material-symbols-outlined text-amber-400 text-sm filled">star</span>
+<span class="text-xs text-slate-500 dark:text-slate-400 font-medium">4.9 (120 reviews)</span>
+</div>
+</div>
+<div class="w-20 h-20 bg-center bg-no-repeat bg-cover rounded-xl shrink-0 border border-slate-100 dark:border-slate-700" data-alt="Portrait of Doctor Sarah Smith" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuBd_6MFCACPHmTwx2lw_nuHW9UAhvoGDQI_8tsSaK9Dqhel3EI2urYLoo6dLSgq5RDU_2qut44fqsEQyBsR-s1AGLXfufAS_-R2Mq3PPGpPGm97J4KRTP4XsjZEQLD7XwvY6lcx3n9IhZhUlxBigLhsKJtEw6MiyydZyTLQVz5wNaNBd0D7fUrBXAlRzWpNvZ1pr8jHeUDdb0Sjye0fP6-RGgs-5ZP8JlNiznm0l5i3HztbwRGgoSDP9E9GW0LrIQh6rh-Pb9oRdys");'>
+</div>
+</div>
+</div>
+<!-- Divider -->
+<div class="h-px w-full bg-slate-100 dark:bg-slate-700"></div>
+<!-- Date & Location Grid -->
+<div class="p-4 grid grid-cols-2 gap-4">
+<div class="flex flex-col gap-1">
+<div class="flex items-center gap-2 mb-1">
+<span class="material-symbols-outlined text-slate-400 text-sm">calendar_today</span>
+<p class="text-slate-500 dark:text-slate-400 text-xs font-semibold uppercase tracking-wider">Date</p>
+</div>
+<p class="text-slate-900 dark:text-white text-sm font-medium leading-normal">Wed, Oct 24</p>
+<p class="text-slate-500 dark:text-slate-400 text-xs font-normal">10:30 AM</p>
+</div>
+<div class="flex flex-col gap-1 border-l border-slate-100 dark:border-slate-700 pl-4">
+<div class="flex items-center gap-2 mb-1">
+<span class="material-symbols-outlined text-slate-400 text-sm">location_on</span>
+<p class="text-slate-500 dark:text-slate-400 text-xs font-semibold uppercase tracking-wider">Location</p>
+</div>
+<p class="text-slate-900 dark:text-white text-sm font-medium leading-normal">Downtown Clinic</p>
+<p class="text-slate-500 dark:text-slate-400 text-xs font-normal">Room 304, Floor 3</p>
+</div>
+</div>
+</div>
+<!-- Payment Selection -->
+<div class="flex flex-col gap-3 mb-6">
+<div class="flex items-center justify-between px-1">
+<h3 class="text-slate-900 dark:text-white text-base font-bold">Payment Method</h3>
+<div class="flex items-center gap-1 text-xs text-green-600 dark:text-green-400 font-medium">
+<span class="material-symbols-outlined text-sm">lock</span>
+                    Secure
+                </div>
+</div>
+<!-- Option 1: Apple Pay (Selected) -->
+<label class="group relative flex cursor-pointer rounded-xl border-2 border-primary bg-primary/5 p-4 shadow-sm transition-all">
+<input checked="" class="peer sr-only" name="payment" type="radio"/>
+<div class="flex w-full items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="flex h-10 w-14 items-center justify-center rounded bg-black text-white">
+<span class="font-bold tracking-tight text-sm">Pay</span>
+</div>
+<div class="flex flex-col">
+<span class="text-sm font-semibold text-slate-900 dark:text-white">Apple Pay</span>
+<span class="text-xs text-slate-500 dark:text-slate-400">Default method</span>
+</div>
+</div>
+<div class="flex size-5 items-center justify-center rounded-full border border-primary bg-primary">
+<div class="size-2 rounded-full bg-white"></div>
+</div>
+</div>
+</label>
+<!-- Option 2: Credit Card -->
+<label class="group relative flex cursor-pointer rounded-xl border border-slate-200 dark:border-slate-700 bg-surface-light dark:bg-surface-dark p-4 shadow-sm transition-all hover:border-slate-300 dark:hover:border-slate-600">
+<input class="peer sr-only" name="payment" type="radio"/>
+<div class="flex w-full items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="flex h-10 w-14 items-center justify-center rounded bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
+<span class="material-symbols-outlined">credit_card</span>
+</div>
+<div class="flex flex-col">
+<span class="text-sm font-semibold text-slate-900 dark:text-white">Credit Card</span>
+<span class="text-xs text-slate-500 dark:text-slate-400">**** 8842</span>
+</div>
+</div>
+<div class="flex size-5 items-center justify-center rounded-full border border-slate-300 dark:border-slate-600">
+<!-- Checked indicator hidden by default -->
+</div>
+</div>
+</label>
+<!-- Option 3: Pay at Clinic -->
+<label class="group relative flex cursor-pointer rounded-xl border border-slate-200 dark:border-slate-700 bg-surface-light dark:bg-surface-dark p-4 shadow-sm transition-all hover:border-slate-300 dark:hover:border-slate-600">
+<input class="peer sr-only" name="payment" type="radio"/>
+<div class="flex w-full items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="flex h-10 w-14 items-center justify-center rounded bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
+<span class="material-symbols-outlined">storefront</span>
+</div>
+<div class="flex flex-col">
+<span class="text-sm font-semibold text-slate-900 dark:text-white">Pay at Clinic</span>
+<span class="text-xs text-slate-500 dark:text-slate-400">Cash or Card</span>
+</div>
+</div>
+<div class="flex size-5 items-center justify-center rounded-full border border-slate-300 dark:border-slate-600">
+<!-- Checked indicator hidden by default -->
+</div>
+</div>
+</label>
+</div>
+<!-- Cost Breakdown -->
+<div class="flex flex-col gap-2 p-4 bg-surface-light dark:bg-surface-dark rounded-xl border border-slate-100 dark:border-slate-800">
+<div class="flex justify-between items-center text-sm">
+<span class="text-slate-500 dark:text-slate-400">Consultation Fee</span>
+<span class="text-slate-900 dark:text-white font-medium">$45.00</span>
+</div>
+<div class="flex justify-between items-center text-sm">
+<span class="text-slate-500 dark:text-slate-400">Booking Fee</span>
+<span class="text-slate-900 dark:text-white font-medium">$5.00</span>
+</div>
+<div class="h-px w-full bg-slate-100 dark:bg-slate-700 my-1"></div>
+<div class="flex justify-between items-center">
+<span class="text-slate-900 dark:text-white font-bold">Total</span>
+<span class="text-primary font-bold text-lg">$50.00</span>
+</div>
+</div>
+</div>
+<!-- Sticky Bottom CTA -->
+<div class="fixed bottom-0 left-0 right-0 p-4 bg-background-light/80 dark:bg-background-dark/80 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 z-40">
+<div class="max-w-lg mx-auto">
+<button class="w-full bg-primary hover:bg-sky-500 active:bg-sky-600 text-white font-bold text-lg py-4 px-6 rounded-lg shadow-lg shadow-primary/20 transition-all flex items-center justify-center gap-2">
+<span class="font-['Noto_Sans_Arabic']" dir="rtl">تأكيد الحجز واستلام الرقم</span>
+<span class="material-symbols-outlined rtl:rotate-180">arrow_forward</span>
+</button>
+</div>
+</div>
+</div>
+</body></html>

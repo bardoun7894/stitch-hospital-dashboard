@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+
+<html class="light" dir="rtl" lang="ar"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Clinic Queue Management - Homepage Variant 3</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#13a4ec",
+                        "background-light": "#f6f7f8",
+                        "background-dark": "#101c22",
+                        "header-dark": "#0d171b",
+                    },
+                    fontFamily: {
+                        "display": ["Inter", "Noto Sans Arabic", "sans-serif"]
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                },
+            },
+        }
+    </script>
+<style>
+        body {
+            font-family: 'Inter', sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .map-gradient-overlay {
+            background: linear-gradient(0deg, rgba(255,255,255,1) 0%, rgba(255,255,255,0) 100%);
+        }
+        .dark .map-gradient-overlay {
+            background: linear-gradient(0deg, rgba(16,28,34,1) 0%, rgba(16,28,34,0) 100%);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark font-display text-[#0d171b] dark:text-slate-100">
+<div class="relative flex min-h-screen w-full flex-col overflow-x-hidden">
+<!-- Header Section (Dark) -->
+<header class="bg-header-dark text-white p-4 pb-12 rounded-b-[2rem] shadow-lg z-10">
+<div class="flex items-center justify-between mb-6">
+<div class="flex items-center gap-3">
+<div class="size-12 rounded-full bg-center bg-no-repeat bg-cover border-2 border-primary" data-alt="User profile picture of a smiling patient" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuDNUb58B4o2qAf7twLpUakncs2UEr3-ecKZOZixGeeh_QwCQXsQFZIQJ5a0qz22GBxTUGT0-OVDZLRdeUI0x39tv_MB8Q7U3_zF7PPeGe3jojq8IOJ6XCzQCkGDFWYZjHAcasS8bzCvyEinmy_DLqa_hUsRf1KKrQCv6C4jms5zcCoKjk3bAvHW_HVlhc0bkykPoMDY3KGDW11NiiyNdxMliyB-7h206KCY9dzpRoeaBsuPfhy6JynoerVTZbYBMVmfjRW89smzm9w");'>
+</div>
+<div>
+<p class="text-xs text-slate-400">أهلاً بك،</p>
+<h1 class="text-lg font-bold leading-tight">أحمد السعيد</h1>
+</div>
+</div>
+<div class="flex gap-2">
+<button class="size-10 flex items-center justify-center rounded-full bg-white/10 text-white">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="size-10 flex items-center justify-center rounded-full bg-white/10 text-white">
+<span class="material-symbols-outlined">settings</span>
+</button>
+</div>
+</div>
+<!-- Health Status & Quick Stats -->
+<div class="flex gap-4">
+<div class="flex flex-1 flex-col gap-1 rounded-xl p-4 bg-white/10 backdrop-blur-md border border-white/5">
+<div class="flex items-center gap-2 text-primary">
+<span class="material-symbols-outlined text-sm">check_circle</span>
+<p class="text-xs font-medium uppercase tracking-wider">الحالة الصحية</p>
+</div>
+<p class="text-xl font-bold">جاهز للزيارة</p>
+</div>
+<div class="flex flex-1 flex-col gap-1 rounded-xl p-4 bg-primary text-white shadow-lg shadow-primary/20">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-sm">schedule</span>
+<p class="text-xs font-medium uppercase tracking-wider">الموعد القادم</p>
+</div>
+<p class="text-xl font-bold">بعد ٣٠ دقيقة</p>
+</div>
+</div>
+</header>
+<!-- Main Content Area -->
+<main class="flex-1 -mt-6 z-0 pb-32">
+<!-- Map-Lite Section -->
+<div class="px-4">
+<div class="relative w-full h-56 rounded-2xl overflow-hidden shadow-sm border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+<div class="absolute inset-0 bg-center bg-no-repeat bg-cover opacity-60 grayscale-[0.5]" data-alt="Simplified light map showing clinic location" data-location="Riyadh, Saudi Arabia" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuBQg1A8uKOOD8we-6lHwaJJLOwEneMJTUt7oRnxPrx3_33SANLL54o9hnXo1HlQwU4Vz1yWHT9UPoh3jwqVMoAC2iqQRwvq_GNw8iSduLE7o1tAadnIN8NbRTh9I80Wqp5LgrZ2PRqz0CC0P8-O6AqSu50tmhWPzsNllMebaQzr1KDojE-3C3Q8MiIkyOP16tlpDCx_xJpIIUOmJkRUiPz3ji5wVNqH1epZ8l2mUDBx-bfsZA_0vVJLXF7cCXoIR6vHAnVOBE4daJQ");'>
+</div>
+<div class="absolute inset-0 map-gradient-overlay"></div>
+<!-- Distance Badge -->
+<div class="absolute top-4 right-4 bg-white/90 dark:bg-header-dark/90 backdrop-blur px-3 py-1.5 rounded-full shadow-sm flex items-center gap-2 border border-slate-100 dark:border-slate-700">
+<span class="material-symbols-outlined text-primary text-sm">location_on</span>
+<span class="text-xs font-bold text-[#0d171b] dark:text-white">تبعد ٢.٥ كم</span>
+</div>
+<!-- Map Pin & Radius UI -->
+<div class="absolute inset-0 flex items-center justify-center">
+<div class="relative">
+<div class="absolute inset-0 animate-ping rounded-full bg-primary/20 scale-150"></div>
+<div class="size-10 bg-primary rounded-full flex items-center justify-center text-white shadow-xl shadow-primary/40 relative z-10 border-4 border-white dark:border-header-dark">
+<span class="material-symbols-outlined">medical_services</span>
+</div>
+</div>
+</div>
+<!-- Geofence Info -->
+<div class="absolute bottom-4 left-4 right-4 text-center">
+<div class="inline-flex items-center gap-2 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 px-4 py-1.5 rounded-full border border-emerald-500/20">
+<span class="size-2 rounded-full bg-emerald-500"></span>
+<span class="text-xs font-bold">أنت داخل النطاق الجغرافي للعيادة</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Current Token Tracker -->
+<div class="px-4 mt-6">
+<div class="bg-white dark:bg-header-dark p-5 rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-slate-100 dark:border-slate-800">
+<div class="flex items-center justify-between mb-4">
+<h2 class="text-lg font-bold text-[#0d171b] dark:text-white">تتبع الدور المباشر</h2>
+<span class="text-xs font-medium text-slate-400">تحديث تلقائي</span>
+</div>
+<div class="flex items-center justify-between gap-4">
+<div class="flex flex-col items-center flex-1 py-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl">
+<span class="text-xs text-slate-500 dark:text-slate-400 mb-1">دورك</span>
+<span class="text-3xl font-black text-primary">#٤٢</span>
+</div>
+<div class="flex items-center justify-center">
+<span class="material-symbols-outlined text-slate-300">chevron_left</span>
+</div>
+<div class="flex flex-col items-center flex-1 py-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl">
+<span class="text-xs text-slate-500 dark:text-slate-400 mb-1">يُخدم الآن</span>
+<span class="text-3xl font-black text-[#0d171b] dark:text-white">#٣٨</span>
+</div>
+</div>
+<div class="mt-4 flex items-center gap-2 bg-primary/5 p-3 rounded-lg">
+<span class="material-symbols-outlined text-primary">info</span>
+<p class="text-sm text-slate-600 dark:text-slate-300">متبقي ٤ أشخاص أمامك. وقت الانتظار التقريبي ١٢ دقيقة.</p>
+</div>
+</div>
+</div>
+<!-- Doctor Section Header -->
+<div class="px-4 mt-8 flex items-center justify-between">
+<h2 class="text-xl font-bold text-[#0d171b] dark:text-white">الأطباء المتاحون</h2>
+<button class="text-sm font-medium text-primary">عرض الكل</button>
+</div>
+<!-- Doctor List (Partial Bottom Sheet Style) -->
+<div class="px-4 mt-4 space-y-4">
+<div class="flex items-stretch justify-between gap-4 rounded-2xl bg-white dark:bg-header-dark p-4 shadow-sm border border-slate-100 dark:border-slate-800">
+<div class="flex flex-[2_2_0px] flex-col justify-between">
+<div>
+<p class="text-[#0d171b] dark:text-white text-base font-bold leading-tight">د. سارة المنصور</p>
+<p class="text-[#4c809a] dark:text-slate-400 text-sm font-normal mt-1">إخصائية طب الأطفال</p>
+<div class="flex items-center gap-1 mt-2 text-amber-500">
+<span class="material-symbols-outlined text-sm">star</span>
+<span class="text-xs font-bold">٤.٩ (١٢٠ تقييم)</span>
+</div>
+</div>
+<button class="flex min-w-[100px] mt-4 cursor-pointer items-center justify-center overflow-hidden rounded-xl h-9 px-4 bg-primary text-white text-sm font-bold shadow-md shadow-primary/20">
+<span>حجز موعد</span>
+</button>
+</div>
+<div class="size-24 bg-center bg-no-repeat bg-cover rounded-xl shrink-0" data-alt="Professional portrait of Dr. Sara Al-Mansour" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuCJ4Zmre-brCWfrY00LJFdCQH2dzqxIWZDpyCeBCcHlJOaFgoDsODFUmNsMYvkD2l2z4tyYfrWMgijjA17n81zxCQkWHF41ORJKas6iUibWrW2UMixfFK8f02j5YBufz32dpxHhafw8kMVv56TmAUtL0mHhG3E_bXKCmJdaMU6T0Cn3YwyRU7z4u-zFbO3EG7himwlLsVeOw-DZUzBfczpzYslV91bNnw9yG2OgDJLJQJ39yL5u_DNDSj_5MsYrNOGDEJ6cftRvHKo");'>
+</div>
+</div>
+<div class="flex items-stretch justify-between gap-4 rounded-2xl bg-white dark:bg-header-dark p-4 shadow-sm border border-slate-100 dark:border-slate-800">
+<div class="flex flex-[2_2_0px] flex-col justify-between">
+<div>
+<p class="text-[#0d171b] dark:text-white text-base font-bold leading-tight">د. خالد العتيبي</p>
+<p class="text-[#4c809a] dark:text-slate-400 text-sm font-normal mt-1">إستشاري الباطنية</p>
+<div class="flex items-center gap-1 mt-2 text-amber-500">
+<span class="material-symbols-outlined text-sm">star</span>
+<span class="text-xs font-bold">٤.٧ (٨٥ تقييم)</span>
+</div>
+</div>
+<button class="flex min-w-[100px] mt-4 cursor-pointer items-center justify-center overflow-hidden rounded-xl h-9 px-4 bg-slate-100 dark:bg-slate-800 text-[#0d171b] dark:text-white text-sm font-bold">
+<span>حجز موعد</span>
+</button>
+</div>
+<div class="size-24 bg-center bg-no-repeat bg-cover rounded-xl shrink-0" data-alt="Professional portrait of Dr. Khalid Al-Otaibi" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuB4flIBv-aCKN8QkX-2oy1lTEOVTexX38iPj7X9wcOTqgrRU0W9Bfw57AiBzbXLMsa63Jh_JAz1uuiYSyXeSB_dHMFaJffvDHIWXsHrJ-2SbYboklHDA72V0_1iUnrQn1OufyJLnyftVzUyzlBhhU5dvLb2JXK9B4tBhye5rtknOYmeTU6VjA5Cpxk28q5LSsmvYg_Me4kZTRvEAF-OMkV8KibiOsp8AocB-MK1NJA5328l3N0VEfQPE186ntq7f9ghZqA6drwce3c");'>
+</div>
+</div>
+</div>
+</main>
+<!-- Bottom Navigation Bar (iOS Style) -->
+<nav class="fixed bottom-0 left-0 right-0 bg-white/80 dark:bg-header-dark/80 backdrop-blur-xl border-t border-slate-200 dark:border-slate-800 px-6 py-4 flex items-center justify-between z-20">
+<button class="flex flex-col items-center gap-1 text-primary">
+<span class="material-symbols-outlined font-variation-fill">home</span>
+<span class="text-[10px] font-bold">الرئيسية</span>
+</button>
+<button class="flex flex-col items-center gap-1 text-slate-400 dark:text-slate-500">
+<span class="material-symbols-outlined">calendar_month</span>
+<span class="text-[10px] font-medium">مواعيدي</span>
+</button>
+<div class="relative -top-10">
+<button class="size-14 bg-primary text-white rounded-full flex items-center justify-center shadow-lg shadow-primary/40 border-4 border-background-light dark:border-background-dark">
+<span class="material-symbols-outlined text-2xl">add</span>
+</button>
+</div>
+<button class="flex flex-col items-center gap-1 text-slate-400 dark:text-slate-500">
+<span class="material-symbols-outlined">receipt_long</span>
+<span class="text-[10px] font-medium">السجلات</span>
+</button>
+<button class="flex flex-col items-center gap-1 text-slate-400 dark:text-slate-500">
+<span class="material-symbols-outlined">person</span>
+<span class="text-[10px] font-medium">الملف</span>
+</button>
+</nav>
+<!-- Floating Action Notification -->
+<div class="fixed bottom-28 left-4 right-4 z-10 pointer-events-none">
+<div class="bg-primary/95 backdrop-blur text-white p-3 rounded-2xl flex items-center justify-between shadow-xl pointer-events-auto">
+<div class="flex items-center gap-3">
+<div class="bg-white/20 p-2 rounded-xl">
+<span class="material-symbols-outlined">airplane_ticket</span>
+</div>
+<div>
+<p class="text-xs font-bold leading-none">تذكرة نشطة</p>
+<p class="text-[10px] opacity-90">د. سارة • غرفة ٣</p>
+</div>
+</div>
+<div class="flex items-center gap-2">
+<span class="text-lg font-black">#٤٢</span>
+<span class="material-symbols-outlined text-sm">chevron_left</span>
+</div>
+</div>
+</div>
+</div>
+</body></html>

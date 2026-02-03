@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Clinic Management - Homepage Variant 2</title>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Google Fonts -->
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              colors: {
+                "primary": "#0aa7f5",
+                "background-light": "#f5f7f8",
+                "background-dark": "#101c22",
+              },
+              fontFamily: {
+                "display": ["Inter", "sans-serif"]
+              },
+              borderRadius: {"DEFAULT": "0.5rem", "lg": "1rem", "xl": "1.5rem", "full": "9999px"},
+            },
+          },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark font-display text-slate-900 dark:text-slate-100 min-h-screen pb-24">
+<!-- TopAppBar -->
+<header class="sticky top-0 z-50 bg-background-light/80 dark:bg-background-dark/80 backdrop-blur-md">
+<div class="flex items-center p-4 pb-2 justify-between">
+<div class="flex size-12 shrink-0 items-center">
+<div class="bg-center bg-no-repeat aspect-square bg-cover rounded-full size-10 border-2 border-primary" data-alt="User profile avatar showing a smiling person" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuBKIIZ3PPXLo-jGYBNy1Y-TzCrs72nrBH7L6ey0JmPBNSt3LlC87c45Quwtq7n3szfVIrfHJGr08563LYIRSmZyRK6JZr6XLlyDNIBVfAWEOlDLxvu1RkZf6l27WQgaTohGP-sd28r185S1iVeliSaJgVEO-R63YKS7KS5iqF4W8cntZ-xAZogZCg18mUpQT_W1Y0oRYC7-7oA7xdpu1674QAhabXwMD_dP7V8NR784pt7ISkW2kcSYn4pMpNKg0auin02g1EX-_T8");'>
+</div>
+</div>
+<div class="flex-1 px-3">
+<p class="text-xs text-slate-500 dark:text-slate-400 font-medium">Welcome back | أهلاً بك</p>
+<h2 class="text-lg font-bold leading-tight tracking-tight">Hello, Ahmed | أحمد</h2>
+</div>
+<div class="flex items-center gap-2">
+<button class="flex size-10 items-center justify-center rounded-full bg-white dark:bg-slate-800 shadow-sm border border-slate-200 dark:border-slate-700">
+<span class="material-symbols-outlined text-primary">notifications</span>
+</button>
+</div>
+</div>
+</header>
+<!-- Active Token / Live Queue Preview -->
+<div class="px-4 py-2">
+<div class="bg-primary rounded-xl p-5 text-white shadow-lg shadow-primary/20 relative overflow-hidden">
+<div class="absolute -right-4 -top-4 size-24 bg-white/10 rounded-full blur-2xl"></div>
+<div class="flex justify-between items-start mb-4">
+<div>
+<span class="text-xs font-semibold uppercase tracking-wider opacity-80">Current Queue | الدور الحالي</span>
+<h3 class="text-2xl font-bold mt-1">Dr. Sarah Miller</h3>
+</div>
+<div class="bg-white/20 px-3 py-1 rounded-full text-xs font-medium">
+                    General | عامة
+                </div>
+</div>
+<div class="grid grid-cols-2 gap-4">
+<div class="bg-white/10 rounded-lg p-3">
+<p class="text-[10px] uppercase opacity-70">Your Token | رقمك</p>
+<p class="text-xl font-bold">#24</p>
+</div>
+<div class="bg-white/10 rounded-lg p-3">
+<p class="text-[10px] uppercase opacity-70">Now Serving | الآن</p>
+<p class="text-xl font-bold">#18</p>
+</div>
+</div>
+<div class="mt-4 flex items-center gap-2 text-xs">
+<span class="material-symbols-outlined text-sm">location_on</span>
+<span>Within range | ضمن النطاق (1.2 km)</span>
+</div>
+</div>
+</div>
+<!-- SectionHeader: Categories -->
+<div class="flex items-center justify-between px-4 pt-6 pb-2">
+<h3 class="text-lg font-bold leading-tight tracking-tight">Categories | الفئات</h3>
+<button class="text-primary text-sm font-semibold">See All | الكل</button>
+</div>
+<!-- TextGrid: Medical Categories -->
+<div class="grid grid-cols-2 sm:grid-cols-4 gap-3 p-4">
+<div class="flex flex-col gap-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 items-center text-center hover:border-primary transition-colors cursor-pointer group">
+<div class="size-12 rounded-full bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-all">
+<span class="material-symbols-outlined">cardiology</span>
+</div>
+<div class="flex flex-col">
+<span class="text-sm font-bold leading-tight">Cardiology</span>
+<span class="text-[10px] text-slate-500 font-medium">قلبية</span>
+</div>
+</div>
+<div class="flex flex-col gap-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 items-center text-center hover:border-primary transition-colors cursor-pointer group">
+<div class="size-12 rounded-full bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-all">
+<span class="material-symbols-outlined">child_care</span>
+</div>
+<div class="flex flex-col">
+<span class="text-sm font-bold leading-tight">Pediatrics</span>
+<span class="text-[10px] text-slate-500 font-medium">أطفال</span>
+</div>
+</div>
+<div class="flex flex-col gap-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 items-center text-center hover:border-primary transition-colors cursor-pointer group">
+<div class="size-12 rounded-full bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-all">
+<span class="material-symbols-outlined">dentistry</span>
+</div>
+<div class="flex flex-col">
+<span class="text-sm font-bold leading-tight">Dental</span>
+<span class="text-[10px] text-slate-500 font-medium">أسنان</span>
+</div>
+</div>
+<div class="flex flex-col gap-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 items-center text-center hover:border-primary transition-colors cursor-pointer group">
+<div class="size-12 rounded-full bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-all">
+<span class="material-symbols-outlined">stethoscope</span>
+</div>
+<div class="flex flex-col">
+<span class="text-sm font-bold leading-tight">General</span>
+<span class="text-[10px] text-slate-500 font-medium">عام</span>
+</div>
+</div>
+</div>
+<!-- SectionHeader: Quick Actions -->
+<div class="flex items-center justify-between px-4 pt-4 pb-2">
+<h3 class="text-lg font-bold leading-tight tracking-tight">Quick Actions | إجراءات سريعة</h3>
+</div>
+<!-- ImageGrid: Quick Actions -->
+<div class="grid grid-cols-2 gap-4 p-4">
+<div class="relative overflow-hidden group aspect-[4/5] rounded-xl bg-slate-200 dark:bg-slate-800 cursor-pointer">
+<div class="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-110" data-alt="Modern medical clinic waiting room" style='background-image: linear-gradient(180deg, rgba(0, 0, 0, 0) 40%, rgba(0, 0, 0, 0.8) 100%), url("https://lh3.googleusercontent.com/aida-public/AB6AXuB0QTq2Zatfu3yXUmqcG3_614F0GfCvDy4hrMVJKO-kj0SzubP3enyStEPKeJBxn5BXVhI27by5cvCC2dV7lra9T7nHNmVnd_TuMqFLBN8FCeE3GBCDpX6MoCHZUSBWGxxO83bQyY9cTSaSgcnQYU60heDwwwwyUhZtjk3pHC-Z4kDALvejeOWnwzU5Ia1PTI1tkp3xfc43XAJMAvEOrKPWzWN-7DPIpToU2Oo2G6JzOVgJY7MPwvJjfSDbtMPKzzkf5GFng9BU9C0");'>
+</div>
+<div class="absolute bottom-0 left-0 p-4 w-full">
+<div class="size-8 rounded-lg bg-primary flex items-center justify-center mb-2 shadow-lg">
+<span class="material-symbols-outlined text-white text-sm">calendar_month</span>
+</div>
+<p class="text-white text-base font-bold leading-tight">New Booking</p>
+<p class="text-white/80 text-[10px] font-medium">حجز جديد</p>
+</div>
+</div>
+<div class="flex flex-col gap-4">
+<div class="relative overflow-hidden group flex-1 rounded-xl bg-slate-200 dark:bg-slate-800 cursor-pointer">
+<div class="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-110" data-alt="Dynamic queue number display" style='background-image: linear-gradient(180deg, rgba(0, 0, 0, 0.2) 0%, rgba(0, 0, 0, 0.8) 100%), url("https://lh3.googleusercontent.com/aida-public/AB6AXuC99PhBVGNNkmX5UnqeH-UKczkxun3bM7nojQbp2-ldADlKwvnxQKbo5l9GF3R-7KlxuqVq3w9EgegJUQktNZsC7TF4S6HzwKGkXjl3Sle_OQ-p7REctwjwOz2fRtFXiZG_A4NPOlLtcZ19rGcWRwiDxTbPHC93Lrz5DFR32N7Li98H8SrLyXv02sM7nIHa8LUunkTaIji2mT5Kk9FI7ji1jxgLRH3ncqyGV_dMX5TMMstqXCHWa35s7s0pTxXw7k_qQr-Hm3bFTxg");'>
+</div>
+<div class="absolute bottom-0 left-0 p-3 w-full">
+<p class="text-white text-sm font-bold leading-tight">My Queue</p>
+<p class="text-white/80 text-[10px] font-medium">دوري</p>
+</div>
+</div>
+<div class="relative overflow-hidden group flex-1 rounded-xl bg-slate-200 dark:bg-slate-800 cursor-pointer">
+<div class="absolute inset-0 bg-cover bg-center transition-transform duration-500 group-hover:scale-110" data-alt="Digital health records on a tablet" style='background-image: linear-gradient(180deg, rgba(0, 0, 0, 0.2) 0%, rgba(0, 0, 0, 0.8) 100%), url("https://lh3.googleusercontent.com/aida-public/AB6AXuD8xhc2gmhQleLtXN1g4Ax_JNrP3DQO9Rt_M_9DcTnmi5-hwlniH439p_RAWzO71KVaGg0uEYv8htn09qh4o6u5AxbOO2cNKrqdAUfAv4wAade_WCo7HPRmZdjD8MQQlMyPKdHlY7UoTEs0hrueBLjl0KVGDMNIeGI8YK0ZR7XNJufgFIiOqnx1fTnR-0BIo_ON8MNIAfmVT8x-9MMRMgXpgHGTcDtQ0SFA4sVL7WV29yakEgH4S77MJBXPmy-sv0RowngL4lcI-G0");'>
+</div>
+<div class="absolute bottom-0 left-0 p-3 w-full">
+<p class="text-white text-sm font-bold leading-tight">Medical Records</p>
+<p class="text-white/80 text-[10px] font-medium">السجلات</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Floating Bottom Navigation (iOS Style) -->
+<nav class="fixed bottom-6 left-1/2 -translate-x-1/2 w-[90%] max-w-md h-16 bg-white/90 dark:bg-slate-900/90 backdrop-blur-lg border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl flex items-center justify-around px-6 z-50">
+<button class="flex flex-col items-center gap-1 text-primary">
+<span class="material-symbols-outlined fill-1">home</span>
+<span class="text-[10px] font-bold">Home</span>
+</button>
+<button class="flex flex-col items-center gap-1 text-slate-400">
+<span class="material-symbols-outlined">search</span>
+<span class="text-[10px] font-medium">Search</span>
+</button>
+<button class="flex flex-col items-center gap-1 text-slate-400">
+<span class="material-symbols-outlined">history</span>
+<span class="text-[10px] font-medium">History</span>
+</button>
+<button class="flex flex-col items-center gap-1 text-slate-400">
+<span class="material-symbols-outlined">person</span>
+<span class="text-[10px] font-medium">Profile</span>
+</button>
+</nav>
+<!-- Spacer for bottom nav -->
+<div class="h-20"></div>
+</body></html>

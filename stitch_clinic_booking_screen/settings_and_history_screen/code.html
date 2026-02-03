@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Settings &amp; History - Clinic Queue</title>
+<!-- Fonts -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Noto+Sans+Arabic:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#13a4ec",
+                        "background-light": "#f6f7f8",
+                        "background-dark": "#101c22",
+                    },
+                    fontFamily: {
+                        "display": ["Inter", "sans-serif"],
+                        "arabic": ["Noto Sans Arabic", "sans-serif"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        /* Hide scrollbar for clean mobile look */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        /* Range Slider Styling */
+        input[type=range] {
+            -webkit-appearance: none; 
+            background: transparent; 
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+        }
+        input[type=range]:focus {
+            outline: none;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-white font-display antialiased overflow-x-hidden">
+<div class="relative flex min-h-screen flex-col mx-auto max-w-md bg-background-light dark:bg-background-dark shadow-2xl overflow-hidden border-x border-slate-200 dark:border-slate-800">
+<!-- Header -->
+<header class="flex items-center justify-between p-4 pb-2 bg-background-light dark:bg-background-dark sticky top-0 z-20 backdrop-blur-md bg-opacity-90 dark:bg-opacity-90">
+<button class="flex items-center justify-center w-10 h-10 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors">
+<span class="material-symbols-outlined text-slate-900 dark:text-white">arrow_back</span>
+</button>
+<h1 class="text-lg font-bold text-slate-900 dark:text-white tracking-tight">Settings &amp; History</h1>
+<div class="w-10"></div> <!-- Spacer for visual balance -->
+</header>
+<main class="flex-1 px-4 pb-24 pt-2">
+<!-- Settings Section -->
+<div class="space-y-4 mb-8">
+<h2 class="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest px-1 mb-2">Queue Preferences</h2>
+<!-- Geofencing Card -->
+<div class="bg-white dark:bg-slate-800 rounded-xl p-5 shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:shadow-none border border-slate-100 dark:border-slate-700/50">
+<div class="flex items-center justify-between gap-4">
+<div class="flex flex-col gap-1.5 pr-2">
+<div class="flex items-center gap-2">
+<div class="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-[18px]">location_on</span>
+</div>
+<span class="text-[15px] font-bold text-slate-900 dark:text-white">Automatic Check-in</span>
+</div>
+<p class="text-[13px] text-slate-500 dark:text-slate-400 leading-snug pl-[42px]">
+                                Check me in when I am within <span class="font-semibold text-slate-700 dark:text-slate-300">500m</span> of the clinic via GPS.
+                            </p>
+</div>
+<label class="relative inline-flex items-center cursor-pointer shrink-0">
+<input checked="" class="sr-only peer" type="checkbox" value=""/>
+<div class="w-12 h-7 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-[20px] rtl:peer-checked:after:-translate-x-[20px] peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all after:shadow-sm dark:border-gray-600 peer-checked:bg-primary"></div>
+</label>
+</div>
+</div>
+<!-- Slider Card -->
+<div class="bg-white dark:bg-slate-800 rounded-xl p-5 shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:shadow-none border border-slate-100 dark:border-slate-700/50">
+<div class="flex flex-col gap-5">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<div class="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-[18px]">notifications_active</span>
+</div>
+<span class="text-[15px] font-bold text-slate-900 dark:text-white">Alert Trigger</span>
+</div>
+<div class="px-3 py-1 rounded-full bg-slate-100 dark:bg-slate-700">
+<span class="text-sm font-bold text-primary">3 People</span>
+</div>
+</div>
+<!-- Slider Control -->
+<div class="relative w-full h-8 flex items-center px-1">
+<!-- Track Background -->
+<div class="absolute left-0 right-0 top-1/2 -translate-y-1/2 h-1.5 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+<!-- Active Track Fill (simulated 30%) -->
+<div class="h-full w-[30%] bg-primary rounded-full"></div>
+</div>
+<!-- Thumb (Native Input over custom styles) -->
+<input class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" max="10" min="1" type="range" value="3"/>
+<!-- Visual Thumb (positioned at 30%) -->
+<div class="absolute left-[30%] top-1/2 -translate-y-1/2 -translate-x-1/2 w-6 h-6 bg-white dark:bg-slate-600 border-2 border-primary rounded-full shadow-md z-0 pointer-events-none flex items-center justify-center">
+<div class="w-2 h-2 bg-primary rounded-full"></div>
+</div>
+</div>
+<p class="text-xs text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-900/40 p-3 rounded-lg border border-slate-100 dark:border-slate-800/50 flex gap-2 items-start">
+<span class="material-symbols-outlined text-[16px] text-slate-400 mt-0.5">info</span>
+<span>You will receive a push notification when there are only <span class="font-bold text-slate-700 dark:text-slate-300">3 people</span> ahead of you in the queue.</span>
+</p>
+</div>
+</div>
+</div>
+<!-- History Section -->
+<div class="space-y-4">
+<div class="flex items-center justify-between px-1 border-b border-slate-200 dark:border-slate-800 pb-2">
+<h2 class="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">History</h2>
+<h2 class="text-sm font-bold text-slate-900 dark:text-white font-arabic">سجل المواعيد</h2>
+</div>
+<!-- History Card 1 (Done) -->
+<div class="bg-white dark:bg-slate-800 rounded-xl p-4 shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:shadow-none border border-slate-100 dark:border-slate-700/50 flex flex-col gap-3 group active:scale-[0.99] transition-transform" dir="rtl">
+<div class="flex items-start justify-between">
+<div class="flex gap-3.5 items-center">
+<div class="w-12 h-12 rounded-xl bg-blue-50 dark:bg-blue-500/10 flex items-center justify-center shrink-0 text-primary border border-blue-100 dark:border-blue-500/20">
+<span class="material-symbols-outlined">dentistry</span>
+</div>
+<div class="flex flex-col gap-0.5">
+<h3 class="font-arabic font-bold text-slate-900 dark:text-white text-[15px]">عيادة الأسنان</h3>
+<span class="font-arabic text-[13px] text-slate-500 dark:text-slate-400">د. محمد أحمد</span>
+</div>
+</div>
+<span class="inline-flex items-center rounded-full bg-emerald-50 dark:bg-emerald-500/10 px-2.5 py-1 text-xs font-bold text-emerald-600 dark:text-emerald-400 ring-1 ring-inset ring-emerald-600/20 font-arabic mt-1">
+                            تم الكشف
+                        </span>
+</div>
+<div class="flex items-center justify-between pt-3 border-t border-slate-50 dark:border-slate-700/50 mt-1">
+<div class="flex items-center gap-1.5 text-slate-400 text-xs">
+<span class="material-symbols-outlined text-[16px]">event</span>
+<span class="font-arabic pt-0.5">١٢ أكتوبر ٢٠٢٣</span>
+</div>
+<button class="text-xs font-bold text-primary hover:text-blue-600 dark:hover:text-blue-400 transition-colors font-arabic py-1 px-2 -ml-2 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20">
+                            إعادة الحجز
+                        </button>
+</div>
+</div>
+<!-- History Card 2 (Cancelled) -->
+<div class="bg-white dark:bg-slate-800 rounded-xl p-4 shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:shadow-none border border-slate-100 dark:border-slate-700/50 flex flex-col gap-3 group active:scale-[0.99] transition-transform" dir="rtl">
+<div class="flex items-start justify-between">
+<div class="flex gap-3.5 items-center">
+<div class="w-12 h-12 rounded-xl bg-purple-50 dark:bg-purple-500/10 flex items-center justify-center shrink-0 text-purple-500 border border-purple-100 dark:border-purple-500/20">
+<span class="material-symbols-outlined">ophthalmology</span>
+</div>
+<div class="flex flex-col gap-0.5">
+<h3 class="font-arabic font-bold text-slate-900 dark:text-white text-[15px]">عيادة العيون</h3>
+<span class="font-arabic text-[13px] text-slate-500 dark:text-slate-400">د. سارة علي</span>
+</div>
+</div>
+<span class="inline-flex items-center rounded-full bg-rose-50 dark:bg-rose-500/10 px-2.5 py-1 text-xs font-bold text-rose-600 dark:text-rose-400 ring-1 ring-inset ring-rose-600/20 font-arabic mt-1">
+                            ملغي
+                        </span>
+</div>
+<div class="flex items-center justify-between pt-3 border-t border-slate-50 dark:border-slate-700/50 mt-1">
+<div class="flex items-center gap-1.5 text-slate-400 text-xs">
+<span class="material-symbols-outlined text-[16px]">event</span>
+<span class="font-arabic pt-0.5">٠٥ سبتمبر ٢٠٢٣</span>
+</div>
+<button class="text-xs font-bold text-primary hover:text-blue-600 dark:hover:text-blue-400 transition-colors font-arabic py-1 px-2 -ml-2 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20">
+                            إعادة الحجز
+                        </button>
+</div>
+</div>
+<!-- History Card 3 (Done) -->
+<div class="bg-white dark:bg-slate-800 rounded-xl p-4 shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:shadow-none border border-slate-100 dark:border-slate-700/50 flex flex-col gap-3 group active:scale-[0.99] transition-transform" dir="rtl">
+<div class="flex items-start justify-between">
+<div class="flex gap-3.5 items-center">
+<div class="w-12 h-12 rounded-xl bg-orange-50 dark:bg-orange-500/10 flex items-center justify-center shrink-0 text-orange-500 border border-orange-100 dark:border-orange-500/20">
+<span class="material-symbols-outlined">stethoscope</span>
+</div>
+<div class="flex flex-col gap-0.5">
+<h3 class="font-arabic font-bold text-slate-900 dark:text-white text-[15px]">الطب العام</h3>
+<span class="font-arabic text-[13px] text-slate-500 dark:text-slate-400">د. خالد عمر</span>
+</div>
+</div>
+<span class="inline-flex items-center rounded-full bg-emerald-50 dark:bg-emerald-500/10 px-2.5 py-1 text-xs font-bold text-emerald-600 dark:text-emerald-400 ring-1 ring-inset ring-emerald-600/20 font-arabic mt-1">
+                            تم الكشف
+                        </span>
+</div>
+<div class="flex items-center justify-between pt-3 border-t border-slate-50 dark:border-slate-700/50 mt-1">
+<div class="flex items-center gap-1.5 text-slate-400 text-xs">
+<span class="material-symbols-outlined text-[16px]">event</span>
+<span class="font-arabic pt-0.5">٢٠ أغسطس ٢٠٢٣</span>
+</div>
+<button class="text-xs font-bold text-primary hover:text-blue-600 dark:hover:text-blue-400 transition-colors font-arabic py-1 px-2 -ml-2 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20">
+                            إعادة الحجز
+                        </button>
+</div>
+</div>
+</div>
+</main>
+<!-- Bottom Navigation -->
+<div class="fixed bottom-0 w-full max-w-md bg-white/80 dark:bg-slate-900/80 backdrop-blur-lg border-t border-slate-200 dark:border-slate-800 z-30 pb-4">
+<div class="flex justify-around items-center h-14">
+<button class="flex flex-col items-center justify-center w-full h-full text-slate-400 hover:text-primary transition-colors gap-1 group">
+<span class="material-symbols-outlined group-hover:scale-110 transition-transform">home</span>
+<span class="text-[10px] font-medium">Home</span>
+</button>
+<button class="flex flex-col items-center justify-center w-full h-full text-slate-400 hover:text-primary transition-colors gap-1 group">
+<div class="relative">
+<span class="material-symbols-outlined group-hover:scale-110 transition-transform">confirmation_number</span>
+<span class="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full"></span>
+</div>
+<span class="text-[10px] font-medium">Queue</span>
+</button>
+<button class="flex flex-col items-center justify-center w-full h-full text-primary gap-1">
+<span class="material-symbols-outlined">settings</span>
+<span class="text-[10px] font-medium">Settings</span>
+</button>
+</div>
+</div>
+</div>
+</body></html>

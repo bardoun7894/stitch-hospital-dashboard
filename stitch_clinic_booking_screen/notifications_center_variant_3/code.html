@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+
+<html class="light" dir="rtl" lang="ar"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Notifications Center</title>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&amp;family=Noto+Sans+Arabic:wght@300;400;500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Theme Configuration -->
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#137fec",
+                        "background-light": "#f6f7f8",
+                        "background-dark": "#101922",
+                        "card-light": "#ffffff",
+                        "card-dark": "#1a2632",
+                    },
+                    fontFamily: {
+                        "display": ["Inter", "Noto Sans Arabic", "sans-serif"],
+                    },
+                    borderRadius: { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "2xl": "1rem", "full": "9999px" },
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .material-symbols-filled {
+            font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        /* Hide scrollbar for clean UI */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-white font-display overflow-x-hidden min-h-screen flex flex-col relative">
+<!-- Top App Bar -->
+<div class="sticky top-0 z-50 bg-background-light/90 dark:bg-background-dark/90 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 px-4 py-3 flex items-center justify-between transition-colors duration-300">
+<button class="flex items-center justify-center p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors text-slate-800 dark:text-slate-100">
+<span class="material-symbols-outlined text-[24px]">arrow_forward</span>
+</button>
+<h2 class="text-lg font-bold tracking-tight text-center flex-1 ml-10">الإشعارات</h2>
+<!-- Placeholder for symmetry or secondary action -->
+<div class="w-10"></div>
+</div>
+<!-- Main Content: Timeline -->
+<main class="flex-1 w-full max-w-md mx-auto px-4 py-6">
+<div class="flex flex-col gap-0">
+<!-- Timeline Item 1 (Latest - Active) -->
+<div class="grid grid-cols-[48px_1fr] gap-x-2 relative group">
+<!-- Timeline Line & Node -->
+<div class="flex flex-col items-center h-full">
+<div class="relative flex items-center justify-center size-8 shrink-0 z-10 mt-1">
+<!-- Pulsing effect for active state -->
+<span class="absolute inline-flex h-full w-full rounded-full bg-primary/30 animate-ping"></span>
+<span class="relative inline-flex rounded-full size-4 bg-primary border-4 border-background-light dark:border-background-dark"></span>
+</div>
+<!-- Connecting Line -->
+<div class="w-[2px] bg-primary h-full my-1 rounded-full opacity-80"></div>
+</div>
+<!-- Card Content -->
+<div class="pb-8">
+<div class="bg-card-light dark:bg-card-dark rounded-2xl p-4 shadow-sm border border-slate-100 dark:border-slate-800 hover:shadow-md transition-shadow">
+<div class="flex justify-between items-start mb-1">
+<h3 class="text-primary font-bold text-base leading-tight">دورك الآن</h3>
+<span class="text-xs font-medium text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full">الآن</span>
+</div>
+<p class="text-slate-600 dark:text-slate-300 text-sm leading-relaxed mb-3">
+                            يرجى التوجه إلى العيادة رقم 4. دورك جاهز.
+                        </p>
+<div class="flex gap-2 items-center text-xs text-slate-500 dark:text-slate-400">
+<span class="material-symbols-outlined text-[16px]">groups</span>
+<span>5 أشخاص أمامك</span>
+</div>
+<!-- Action Button -->
+<div class="mt-4 flex gap-2">
+<button class="bg-primary text-white text-xs font-semibold py-2 px-4 rounded-lg shadow-sm hover:bg-blue-600 transition-colors flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px]">directions_walk</span>
+                                عرض التذكرة
+                            </button>
+</div>
+</div>
+</div>
+</div>
+<!-- Timeline Item 2 (Completed) -->
+<div class="grid grid-cols-[48px_1fr] gap-x-2 relative group">
+<!-- Timeline Line & Node -->
+<div class="flex flex-col items-center h-full">
+<div class="flex items-center justify-center size-8 shrink-0 z-10 mt-1 bg-background-light dark:bg-background-dark rounded-full">
+<span class="material-symbols-outlined text-primary text-[24px] material-symbols-filled">check_circle</span>
+</div>
+<!-- Connecting Line -->
+<div class="w-[2px] bg-primary h-full my-1 rounded-full opacity-80"></div>
+</div>
+<!-- Card Content -->
+<div class="pb-8">
+<div class="bg-card-light dark:bg-card-dark rounded-2xl p-4 shadow-sm border border-slate-100 dark:border-slate-800">
+<div class="flex justify-between items-start mb-1">
+<h3 class="text-slate-900 dark:text-white font-bold text-base leading-tight">تم الدفع بنجاح</h3>
+<span class="text-xs font-medium text-slate-400 dark:text-slate-500">10:15 ص</span>
+</div>
+<p class="text-slate-500 dark:text-slate-400 text-sm leading-relaxed mb-2">
+                            تم استلام دفعتك بنجاح.
+                        </p>
+<div class="flex items-center gap-2 mt-2">
+<span class="inline-block px-2 py-1 rounded-md bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 text-xs font-bold border border-green-100 dark:border-green-900/30">
+                                150.00 ريال
+                            </span>
+<button class="text-primary text-xs font-medium hover:underline px-2">عرض الإيصال</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Timeline Item 3 (Completed) -->
+<div class="grid grid-cols-[48px_1fr] gap-x-2 relative group">
+<!-- Timeline Line & Node -->
+<div class="flex flex-col items-center h-full">
+<div class="flex items-center justify-center size-8 shrink-0 z-10 mt-1 bg-background-light dark:bg-background-dark rounded-full">
+<span class="material-symbols-outlined text-primary text-[24px] material-symbols-filled">check_circle</span>
+</div>
+<!-- No line after the last item, or faded line -->
+<div class="w-[2px] bg-gradient-to-b from-primary to-transparent h-full my-1 rounded-full opacity-40"></div>
+</div>
+<!-- Card Content -->
+<div class="pb-8">
+<div class="bg-card-light dark:bg-card-dark rounded-2xl p-4 shadow-sm border border-slate-100 dark:border-slate-800">
+<div class="flex justify-between items-start mb-1">
+<h3 class="text-slate-900 dark:text-white font-bold text-base leading-tight">تم تأكيد الحجز</h3>
+<span class="text-xs font-medium text-slate-400 dark:text-slate-500">09:00 ص</span>
+</div>
+<p class="text-slate-500 dark:text-slate-400 text-sm leading-relaxed mb-2">
+                            تم تأكيد موعدك مع د. أحمد.
+                        </p>
+<div class="flex gap-2 items-center text-xs text-slate-500 dark:text-slate-400 mt-2">
+<span class="material-symbols-outlined text-[16px]">dentistry</span>
+<span>عيادة الأسنان</span>
+</div>
+</div>
+</div>
+</div>
+<!-- End of Timeline Indicator (Optional) -->
+<div class="grid grid-cols-[48px_1fr] gap-x-2 relative opacity-50">
+<div class="flex flex-col items-center h-full">
+<div class="w-2 h-2 rounded-full bg-slate-300 dark:bg-slate-700 mt-1"></div>
+</div>
+<div class="text-xs text-slate-400 dark:text-slate-600 pt-0.5">
+                    بداية الرحلة
+                </div>
+</div>
+</div>
+<!-- Empty Space for scrolling above Nav -->
+<div class="h-20"></div>
+</main>
+<!-- Bottom Navigation -->
+<nav class="fixed bottom-0 left-0 right-0 z-40 bg-background-light/95 dark:bg-background-dark/95 backdrop-blur-lg border-t border-slate-200 dark:border-slate-800 pb-safe pt-2">
+<div class="flex justify-around items-end px-2 pb-3">
+<!-- Home -->
+<a class="group flex flex-1 flex-col items-center justify-center gap-1 text-slate-400 hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined text-[26px] group-hover:-translate-y-0.5 transition-transform duration-200">home</span>
+<span class="text-[10px] font-medium">الرئيسية</span>
+</a>
+<!-- Booking -->
+<a class="group flex flex-1 flex-col items-center justify-center gap-1 text-slate-400 hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined text-[26px] group-hover:-translate-y-0.5 transition-transform duration-200">calendar_month</span>
+<span class="text-[10px] font-medium">حجز</span>
+</a>
+<!-- Notifications (Active) -->
+<a class="group flex flex-1 flex-col items-center justify-center gap-1 text-primary" href="#">
+<div class="relative">
+<span class="material-symbols-outlined text-[26px] material-symbols-filled">notifications</span>
+<span class="absolute top-0 right-0.5 w-2 h-2 bg-red-500 rounded-full border-2 border-background-light dark:border-background-dark"></span>
+</div>
+<span class="text-[10px] font-medium">الإشعارات</span>
+</a>
+<!-- Profile -->
+<a class="group flex flex-1 flex-col items-center justify-center gap-1 text-slate-400 hover:text-primary transition-colors" href="#">
+<span class="material-symbols-outlined text-[26px] group-hover:-translate-y-0.5 transition-transform duration-200">person</span>
+<span class="text-[10px] font-medium">ملفي</span>
+</a>
+</div>
+</nav>
+<!-- Safe area spacing for iOS home indicator -->
+<div class="h-6 w-full bg-background-light dark:bg-background-dark"></div>
+</body></html>
