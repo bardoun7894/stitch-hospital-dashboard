@@ -20,6 +20,15 @@ use App\Http\Controllers\Api\MobileNotificationsController;
 |
 */
 
+// Health check endpoint (no auth required)
+Route::get('/health', function () {
+    return response()->json([
+        'status' => 'ok',
+        'timestamp' => now()->toIso8601String(),
+        'version' => config('app.version', '1.0.0'),
+    ]);
+})->name('health');
+
 // Stripe webhook (no auth required - verified by signature)
 Route::post('/webhooks/stripe', [WebhookController::class, 'handleStripeWebhook'])
     ->name('webhooks.stripe');

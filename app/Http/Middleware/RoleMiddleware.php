@@ -5,7 +5,7 @@ namespace App\Http\Middleware;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
-use App\Services\FirebaseService;
+use Illuminate\Support\Facades\Session;
 
 /**
  * RoleMiddleware - Role-based access control for dashboard routes.
@@ -24,19 +24,6 @@ use App\Services\FirebaseService;
 class RoleMiddleware
 {
     /**
-     * The Firebase service instance.
-     */
-    protected FirebaseService $firebaseService;
-
-    /**
-     * Create a new middleware instance.
-     */
-    public function __construct(FirebaseService $firebaseService)
-    {
-        $this->firebaseService = $firebaseService;
-    }
-
-    /**
      * Handle an incoming request.
      *
      * @param  \Closure(\Illuminate\Http\Request): (\Symfony\Component\HttpFoundation\Response)  $next
@@ -44,15 +31,15 @@ class RoleMiddleware
      */
     public function handle(Request $request, Closure $next, string ...$roles): Response
     {
-        // Get current user from session or Firebase
-        $currentUser = $this->firebaseService->getCurrentUser();
+        // Get current user from session (set by LoginController)
+        $userId = Session::get('firebase_user_id');
         
-        if (!$currentUser) {
-            // No authenticated user
+        if (!$userId) {
+            // No authenticated user - redirect to login
             return redirect()->route('login')->with('error', 'يجب تسجيل الدخول للوصول إلى هذه الصفحة');
         }
 
-        $userRole = $currentUser['role'] ?? 'patient';
+        $userRole = Session::get('firebase_user_role', 'patient');
 
         // Super admin always has access
         if ($userRole === 'super_admin') {
@@ -80,14 +67,11 @@ class RoleMiddleware
      */
     public static function hasRole(string $role): bool
     {
-        $firebaseService = app(FirebaseService::class);
-        $currentUser = $firebaseService->getCurrentUser();
+        $userRole = Session::get('firebase_user_role', 'patient');
         
-        if (!$currentUser) {
+        if (!Session::has('firebase_user_id')) {
             return false;
         }
-
-        $userRole = $currentUser['role'] ?? 'patient';
         
         // Super admin has all permissions
         if ($userRole === 'super_admin') {
@@ -111,19 +95,34 @@ class RoleMiddleware
      */
     public static function hasAnyRole(array $roles): bool
     {
-        $firebaseService = app(FirebaseService::class);
-        $currentUser = $firebaseService->getCurrentUser();
-        
-        if (!$currentUser) {
+        if (!Session::has('firebase_user_id')) {
             return false;
         }
 
-        $userRole = $currentUser['role'] ?? 'patient';
+        $userRole = Session::get('firebase_user_role', 'patient');
         
         if ($userRole === 'super_admin') {
             return true;
         }
 
         return in_array($userRole, $roles);
+    }
+
+    /**
+     * Get current authenticated user info from session.
+     */
+    public static function getCurrentUser(): ?array
+    {
+        if (!Session::has('firebase_user_id')) {
+            return null;
+        }
+
+        return [
+            'id' => Session::get('firebase_user_id'),
+            'name' => Session::get('firebase_user_name'),
+            'email' => Session::get('firebase_user_email'),
+            'role' => Session::get('firebase_user_role'),
+            'clinic_id' => Session::get('firebase_user_clinic_id'),
+        ];
     }
 }

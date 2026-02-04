@@ -58,6 +58,13 @@ return [
             'ignore_exceptions' => false,
         ],
 
+        // Production stack: daily logs + Slack alerts for critical
+        'production' => [
+            'driver' => 'stack',
+            'channels' => ['daily', 'slack'],
+            'ignore_exceptions' => false,
+        ],
+
         'single' => [
             'driver' => 'single',
             'path' => storage_path('logs/laravel.log'),
@@ -73,11 +80,38 @@ return [
             'replace_placeholders' => true,
         ],
 
+        // Separate channel for API/booking operations
+        'api' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/api.log'),
+            'level' => 'info',
+            'days' => 30,
+            'replace_placeholders' => true,
+        ],
+
+        // Separate channel for payment operations
+        'payments' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/payments.log'),
+            'level' => 'info',
+            'days' => 90, // Keep payment logs longer for compliance
+            'replace_placeholders' => true,
+        ],
+
+        // Separate channel for queue operations
+        'queue' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/queue.log'),
+            'level' => 'info',
+            'days' => 14,
+            'replace_placeholders' => true,
+        ],
+
         'slack' => [
             'driver' => 'slack',
             'url' => env('LOG_SLACK_WEBHOOK_URL'),
-            'username' => env('LOG_SLACK_USERNAME', 'Laravel Log'),
-            'emoji' => env('LOG_SLACK_EMOJI', ':boom:'),
+            'username' => env('LOG_SLACK_USERNAME', 'ClinicQu Alert'),
+            'emoji' => env('LOG_SLACK_EMOJI', ':hospital:'),
             'level' => env('LOG_LEVEL', 'critical'),
             'replace_placeholders' => true,
         ],

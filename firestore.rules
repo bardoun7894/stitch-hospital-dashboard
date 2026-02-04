@@ -2,49 +2,157 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // Public read for hospitals, clinics, doctors (static catalog data)
+    // ─── Helper Functions ───
+    
+    // Check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Get user document data
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+    
+    // Check if user has specific role
+    function hasRole(role) {
+      return isAuthenticated() && getUserData().role == role;
+    }
+    
+    // Check if user has any of the specified roles
+    function hasAnyRole(roles) {
+      return isAuthenticated() && getUserData().role in roles;
+    }
+    
+    // Check if user is staff (not patient)
+    function isStaff() {
+      return hasAnyRole(['reception', 'doctor', 'clinic_admin', 'hospital_manager', 'super_admin']);
+    }
+    
+    // Check if user is admin level
+    function isAdmin() {
+      return hasAnyRole(['clinic_admin', 'hospital_manager', 'super_admin']);
+    }
+    
+    // Check if user is super admin
+    function isSuperAdmin() {
+      return hasRole('super_admin');
+    }
+    
+    // Check if user owns the resource
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    // ─── Public Catalog Data (read-only for all, write for admins) ───
+    
     match /hospitals/{hospitalId} {
       allow read: if true;
-      allow write: if request.auth != null;
+      allow write: if isAdmin();
     }
 
     match /clinics/{clinicId} {
       allow read: if true;
-      allow write: if request.auth != null;
+      allow write: if isAdmin();
       
       match /doctors/{doctorId} {
         allow read: if true;
-        allow write: if request.auth != null;
+        allow write: if isAdmin();
         
         match /dates/{dateId} {
-           allow read: if true;
-           allow write: if request.auth != null;
+          // Queue state: public read, staff write
+          allow read: if true;
+          allow write: if isStaff();
         }
       }
     }
 
     match /doctors/{doctorId} {
       allow read: if true;
-      allow write: if request.auth != null;
+      allow write: if isAdmin();
     }
 
-    // Authenticated access for private data
-    match /bookings/{bookingId} {
-      allow read, write: if request.auth != null;
-    }
+    // ─── User Data (private) ───
     
     match /users/{userId} {
-      allow read, write: if request.auth != null;
+      // Users can read/write their own profile
+      // Staff can read any user, admins can write
+      allow read: if isOwner(userId) || isStaff();
+      allow create: if isAuthenticated() && request.auth.uid == userId;
+      allow update: if isOwner(userId) || isAdmin();
+      allow delete: if isSuperAdmin();
     }
 
+    // ─── Bookings (ownership-based access) ───
+    
+    match /bookings/{bookingId} {
+      // Allow read if:
+      // - User is the patient who created the booking
+      // - User is staff (can see all bookings)
+      allow read: if isAuthenticated() && (
+        resource.data.patient_id == request.auth.uid ||
+        isStaff()
+      );
+      
+      // Allow create if authenticated (patients can book)
+      allow create: if isAuthenticated() && (
+        request.resource.data.patient_id == request.auth.uid ||
+        isStaff()
+      );
+      
+      // Allow update if:
+      // - Owner updating allowed fields (cancellation)
+      // - Staff can update any booking
+      allow update: if isAuthenticated() && (
+        (resource.data.patient_id == request.auth.uid && 
+         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'cancellation_reason', 'updated_at'])) ||
+        isStaff()
+      );
+      
+      // Only admins can delete bookings
+      allow delete: if isAdmin();
+    }
+
+    // ─── Queue States (public read, staff write) ───
+    
     match /queue_states/{queueId} {
       allow read: if true;
-      allow write: if request.auth != null;
+      allow write: if isStaff();
     }
 
-    // Default catch-all (Authenticated only)
+    // ─── Notifications (private to user) ───
+    
+    match /notifications/{notificationId} {
+      allow read: if isAuthenticated() && resource.data.user_id == request.auth.uid;
+      allow create: if isStaff();  // Only staff/system can create notifications
+      allow update: if isAuthenticated() && resource.data.user_id == request.auth.uid;  // User can mark as read
+      allow delete: if isAuthenticated() && resource.data.user_id == request.auth.uid;
+    }
+
+    // ─── FCM Tokens (private to user) ───
+    
+    match /user_fcm_tokens/{userId} {
+      allow read, write: if isOwner(userId);
+    }
+
+    // ─── Alerts (staff only) ───
+    
+    match /alerts/{alertId} {
+      allow read: if isStaff();
+      allow write: if isAdmin();
+    }
+
+    // ─── Settings (admin only) ───
+    
+    match /settings/{settingId} {
+      allow read: if isStaff();
+      allow write: if isAdmin();
+    }
+
+    // ─── Default: Deny all other access ───
+    // Any collection not explicitly defined above is blocked
     match /{document=**} {
-      allow read, write: if request.auth != null;
+      allow read, write: if false;
     }
   }
 }

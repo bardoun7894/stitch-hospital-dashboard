@@ -72,62 +72,122 @@ class FirebaseService
     }
 
 
-    public function getBookings()
+    /**
+     * Get bookings with pagination support.
+     * 
+     * @param int $limit Number of bookings per page (default 50)
+     * @param string|null $startAfter Document ID to start after (for pagination)
+     * @param string|null $status Filter by status
+     * @param string|null $clinicId Filter by clinic
+     * @param string|null $date Filter by date (Y-m-d)
+     * @return array ['data' => [...], 'next_cursor' => string|null]
+     */
+    public function getBookings(int $limit = 50, ?string $startAfter = null, ?string $status = null, ?string $clinicId = null, ?string $date = null): array
     {
         if (!$this->firestoreClient) {
-            return $this->getMockBookings();
+            return ['data' => $this->getMockBookings(), 'next_cursor' => null];
         }
 
         try {
-            $collection = $this->firestoreClient->collection('bookings');
-            $documents = $collection->documents();
+            $query = $this->firestoreClient->collection('bookings')
+                ->orderBy('created_at', 'DESC')
+                ->limit($limit + 1); // Fetch one extra to check if there's a next page
 
-            $bookings = [];
-            foreach ($documents as $document) {
-                if ($document->exists()) {
-                    $data = $document->data();
-
-                    // Transform Firebase data to dashboard format
-                    $booking = [
-                        'id' => $document->id(),
-                        'status' => $data['status'] ?? 'pending',
-                        'patient_id' => $data['patient_id'] ?? null,
-                        'doctor_id' => $data['doctor_id'] ?? null,
-                        'clinic_id' => $data['clinic_id'] ?? null,
-                        'scheduled_date' => $data['scheduled_date'] ?? null,
-                        'token_number' => $data['token_number'] ?? null,
-                        'created_at' => $data['created_at'] ?? null,
-                    ];
-
-                    // Fetch related data for display
-                    if ($booking['patient_id']) {
-                        $patient = $this->getPatientDetails($booking['patient_id']);
-                        $booking['patient'] = $patient['name'] ?? 'Unknown Patient';
-                    } else {
-                        $booking['patient'] = 'Unknown Patient';
-                    }
-
-                    if ($booking['doctor_id'] && $booking['clinic_id']) {
-                        $doctor = $this->getDoctorDetails($booking['clinic_id'], $booking['doctor_id']);
-                        $booking['doctor_name'] = $this->getLocalizedField($doctor, 'name', 'Unknown Doctor');
-                    } else {
-                        $booking['doctor_name'] = 'Unknown Doctor';
-                    }
-
-                    if ($booking['clinic_id']) {
-                        $clinic = $this->getClinicById($booking['clinic_id']);
-                        $booking['clinic'] = $this->getLocalizedField($clinic, 'name', 'Unknown Clinic');
-                    } else {
-                        $booking['clinic'] = 'Unknown Clinic';
-                    }
-
-                    $bookings[] = $booking;
+            // Apply filters
+            if ($status) {
+                $query = $query->where('status', '=', $status);
+            }
+            if ($clinicId) {
+                $query = $query->where('clinic_id', '=', $clinicId);
+            }
+            
+            // Pagination cursor
+            if ($startAfter) {
+                $cursorDoc = $this->firestoreClient->collection('bookings')->document($startAfter)->snapshot();
+                if ($cursorDoc->exists()) {
+                    $query = $query->startAfter($cursorDoc);
                 }
             }
-            return $bookings;
+
+            $documents = $query->documents();
+
+            $bookings = [];
+            $count = 0;
+            $lastDocId = null;
+            
+            foreach ($documents as $document) {
+                if (!$document->exists()) continue;
+                
+                $count++;
+                if ($count > $limit) {
+                    // This is the extra document, don't include but use for cursor
+                    break;
+                }
+                
+                $data = $document->data();
+                $lastDocId = $document->id();
+
+                // Date filter (client-side since Firestore composite queries are limited)
+                if ($date) {
+                    $bookingDate = null;
+                    if (isset($data['scheduled_date'])) {
+                        $sd = $data['scheduled_date'];
+                        if ($sd instanceof \Google\Cloud\Core\Timestamp) {
+                            $bookingDate = $sd->get()->format('Y-m-d');
+                        } elseif (is_string($sd)) {
+                            $bookingDate = substr($sd, 0, 10);
+                        }
+                    }
+                    if ($bookingDate !== $date) continue;
+                }
+
+                // Transform Firebase data to dashboard format
+                $booking = [
+                    'id' => $document->id(),
+                    'status' => $data['status'] ?? 'pending',
+                    'patient_id' => $data['patient_id'] ?? null,
+                    'doctor_id' => $data['doctor_id'] ?? null,
+                    'clinic_id' => $data['clinic_id'] ?? null,
+                    'scheduled_date' => $data['scheduled_date'] ?? null,
+                    'token_number' => $data['token_number'] ?? null,
+                    'created_at' => $data['created_at'] ?? null,
+                ];
+
+                // Use denormalized names if available, otherwise fetch
+                $booking['patient'] = $data['patient_name'] ?? null;
+                if (!$booking['patient'] && $booking['patient_id']) {
+                    $patient = $this->getPatientDetails($booking['patient_id']);
+                    $booking['patient'] = $patient['name'] ?? 'Unknown Patient';
+                }
+                $booking['patient'] = $booking['patient'] ?? 'Unknown Patient';
+
+                $booking['doctor_name'] = $data['doctor_name'] ?? null;
+                if (!$booking['doctor_name'] && $booking['doctor_id'] && $booking['clinic_id']) {
+                    $doctor = $this->getDoctorDetails($booking['clinic_id'], $booking['doctor_id']);
+                    $booking['doctor_name'] = $this->getLocalizedField($doctor, 'name', 'Unknown Doctor');
+                }
+                $booking['doctor_name'] = $booking['doctor_name'] ?? 'Unknown Doctor';
+
+                $booking['clinic'] = $data['clinic_name'] ?? null;
+                if (!$booking['clinic'] && $booking['clinic_id']) {
+                    $clinic = $this->getClinicById($booking['clinic_id']);
+                    $booking['clinic'] = $this->getLocalizedField($clinic, 'name', 'Unknown Clinic');
+                }
+                $booking['clinic'] = $booking['clinic'] ?? 'Unknown Clinic';
+
+                $bookings[] = $booking;
+            }
+            
+            // Determine if there's a next page
+            $nextCursor = ($count > $limit) ? $lastDocId : null;
+            
+            return [
+                'data' => $bookings,
+                'next_cursor' => $nextCursor,
+            ];
         } catch (\Exception $e) {
             \Log::error('getBookings error: ' . $e->getMessage());
-            return $this->getMockBookings();
+            return ['data' => $this->getMockBookings(), 'next_cursor' => null];
         }
     }
 
@@ -2135,6 +2195,41 @@ class FirebaseService
         } catch (\Exception $e) {
             \Log::error('deleteFamilyMember error: ' . $e->getMessage());
             throw $e;
+        }
+    }
+
+    /**
+     * Get user by email from Firestore users collection.
+     * Used for dashboard authentication.
+     * 
+     * @param string $email
+     * @return array|null User data with id, or null if not found
+     */
+    public function getUserByEmail(string $email): ?array
+    {
+        if (!$this->firestoreClient) {
+            return null;
+        }
+
+        try {
+            $snapshot = $this->firestoreClient
+                ->collection('users')
+                ->where('email', '=', $email)
+                ->limit(1)
+                ->documents();
+
+            foreach ($snapshot as $doc) {
+                if ($doc->exists()) {
+                    $data = $doc->data();
+                    $data['id'] = $doc->id();
+                    return $data;
+                }
+            }
+
+            return null;
+        } catch (\Exception $e) {
+            \Log::error('getUserByEmail error: ' . $e->getMessage());
+            return null;
         }
     }
 
