@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Services\FirebaseService;
+use Illuminate\Support\Facades\Log;
 
 class DoctorScheduleController extends Controller
 {
@@ -16,24 +17,29 @@ class DoctorScheduleController extends Controller
 
     public function show($doctorId)
     {
-        $doctors = $this->firebase->getDoctors();
-        // Find the specific doctor
-        $doctor = null;
-        foreach ($doctors as $d) {
-            if ($d['id'] === $doctorId) {
-                $doctor = $d;
-                break;
+        try {
+            $doctors = $this->firebase->getDoctors();
+            // Find the specific doctor
+            $doctor = null;
+            foreach ($doctors as $d) {
+                if ($d['id'] === $doctorId) {
+                    $doctor = $d;
+                    break;
+                }
             }
+
+            if (!$doctor) {
+                return redirect()->route('doctors.index')->with('error', __('messages.doctor_not_found'));
+            }
+
+            // Get unavailability
+            $unavailability = $this->firebase->getDoctorUnavailability($doctorId);
+
+            return view('doctors.schedule', compact('doctor', 'unavailability'));
+        } catch (\Throwable $e) {
+            Log::error('Load doctor schedule error: ' . $e->getMessage());
+            return redirect()->route('doctors.index')->with('error', __('messages.unknown_error'));
         }
-
-        if (!$doctor) {
-            return redirect()->route('doctors.index')->with('error', __('messages.doctor_not_found'));
-        }
-
-        // Get unavailability
-        $unavailability = $this->firebase->getDoctorUnavailability($doctorId);
-
-        return view('doctors.schedule', compact('doctor', 'unavailability'));
     }
 
     public function update(Request $request, $doctorId)
@@ -43,15 +49,33 @@ class DoctorScheduleController extends Controller
             'working_hours' => 'required|array',
         ]);
 
-        // Transform working_hours for Firestore (if needed) or keep as array
-        // Expected format: 'monday' => ['start' => '09:00', 'end' => '17:00', 'active' => true]
+        try {
+            // Transform working_hours for Firestore
+            // New format per day: am_active, am_start, am_end, pm_active, pm_start, pm_end
+            $transformedHours = [];
+            foreach ($data['working_hours'] as $day => $hours) {
+                $transformedHours[$day] = [
+                    'am_active' => (bool)($hours['am_active'] ?? false),
+                    'am_start' => $hours['am_start'] ?? '08:00',
+                    'am_end' => $hours['am_end'] ?? '12:00',
+                    'pm_active' => (bool)($hours['pm_active'] ?? false),
+                    'pm_start' => $hours['pm_start'] ?? '16:00',
+                    'pm_end' => $hours['pm_end'] ?? '21:00',
+                    // Keep backward-compatible 'active' flag: true if either session is active
+                    'active' => (bool)($hours['am_active'] ?? false) || (bool)($hours['pm_active'] ?? false),
+                ];
+            }
 
-        $this->firebase->updateDoctorSchedule($doctorId, [
-            'working_hours' => $data['working_hours'],
-            'slot_duration' => (int)$data['slot_duration']
-        ]);
+            $this->firebase->updateDoctorSchedule($doctorId, [
+                'working_hours' => $transformedHours,
+                'slot_duration' => (int)$data['slot_duration']
+            ]);
 
-        return redirect()->back()->with('success', __('messages.schedule_updated'));
+            return redirect()->back()->with('success', __('messages.schedule_updated'));
+        } catch (\Throwable $e) {
+            Log::error('Update doctor schedule error: ' . $e->getMessage());
+            return redirect()->back()->with('error', __('messages.settings_update_failed'));
+        }
     }
 
     public function addBlockout(Request $request, $doctorId)
@@ -62,18 +86,28 @@ class DoctorScheduleController extends Controller
             'reason' => 'nullable|string'
         ]);
 
-        $this->firebase->addDoctorUnavailability($doctorId, [
-            'start' => new \DateTime($data['start_date']),
-            'end' => new \DateTime($data['end_date'] . ' 23:59:59'),
-            'reason' => $data['reason']
-        ]);
+        try {
+            $this->firebase->addDoctorUnavailability($doctorId, [
+                'start' => new \DateTime($data['start_date']),
+                'end' => new \DateTime($data['end_date'] . ' 23:59:59'),
+                'reason' => $data['reason']
+            ]);
 
-        return redirect()->back()->with('success', __('messages.blockout_added'));
+            return redirect()->back()->with('success', __('messages.blockout_added'));
+        } catch (\Throwable $e) {
+            Log::error('Add blockout error: ' . $e->getMessage());
+            return redirect()->back()->with('error', __('messages.unknown_error'));
+        }
     }
 
     public function removeBlockout($doctorId, $unavailabilityId)
     {
-        $this->firebase->removeDoctorUnavailability($doctorId, $unavailabilityId);
-        return redirect()->back()->with('success', __('messages.blockout_removed'));
+        try {
+            $this->firebase->removeDoctorUnavailability($doctorId, $unavailabilityId);
+            return redirect()->back()->with('success', __('messages.blockout_removed'));
+        } catch (\Throwable $e) {
+            Log::error('Remove blockout error: ' . $e->getMessage());
+            return redirect()->back()->with('error', __('messages.unknown_error'));
+        }
     }
 }

@@ -123,6 +123,7 @@ class RoleMiddleware
             'email' => Session::get('firebase_user_email'),
             'role' => Session::get('firebase_user_role'),
             'clinic_id' => Session::get('firebase_user_clinic_id'),
+            'hospital_id' => Session::get('firebase_user_hospital_id'),
         ];
     }
 }

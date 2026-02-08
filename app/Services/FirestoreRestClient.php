@@ -116,47 +116,129 @@ class FirestoreRestClient
         return $httpCode === 200 ? json_decode($response, true) : null;
     }
 
-    protected function encodeFields(array $data): array
-    {
-        $fields = [];
-        foreach ($data as $key => $value) {
-            if (is_string($value)) {
-                $fields[$key] = ['stringValue' => $value];
-            } elseif (is_int($value)) {
-                $fields[$key] = ['integerValue' => (string) $value];
-            } elseif (is_float($value)) {
-                $fields[$key] = ['doubleValue' => $value];
-            } elseif (is_bool($value)) {
-                $fields[$key] = ['booleanValue' => $value];
-            } elseif (is_null($value)) {
-                $fields[$key] = ['nullValue' => null];
-            } elseif (is_array($value)) {
-                $fields[$key] = ['mapValue' => ['fields' => $this->encodeFields($value)]];
-            }
-        }
-        return $fields;
-    }
-
-    public function list($collection)
+    public function createDocument($collection, array $fields, ?string $documentId = null)
     {
         $url = "https://firestore.googleapis.com/v1/projects/{$this->projectId}/databases/(default)/documents/{$collection}";
+        if ($documentId) {
+            $url .= '?documentId=' . urlencode($documentId);
+        }
+
+        $body = json_encode(['fields' => $this->encodeFields($fields)]);
 
         $ch = curl_init($url);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, $body);
         curl_setopt($ch, CURLOPT_HTTPHEADER, [
-            'Authorization: Bearer ' . $this->accessToken
+            'Authorization: Bearer ' . $this->accessToken,
+            'Content-Type: application/json',
         ]);
 
         $response = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         curl_close($ch);
 
-        if ($httpCode === 200) {
-            $data = json_decode($response, true);
-            return $data['documents'] ?? [];
+        if ($httpCode === 200 || $httpCode === 201) {
+            return json_decode($response, true);
         }
 
-        return [];
+        \Log::error("Firestore createDocument failed ($httpCode): $response");
+        return null;
+    }
+
+    public function deleteDocument($path)
+    {
+        $url = "https://firestore.googleapis.com/v1/projects/{$this->projectId}/databases/(default)/documents/{$path}";
+
+        $ch = curl_init($url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'DELETE');
+        curl_setopt($ch, CURLOPT_HTTPHEADER, [
+            'Authorization: Bearer ' . $this->accessToken,
+        ]);
+
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+
+        return $httpCode === 200;
+    }
+
+    protected function encodeFields(array $data): array
+    {
+        $fields = [];
+        foreach ($data as $key => $value) {
+            $fields[$key] = $this->encodeValue($value);
+        }
+        return $fields;
+    }
+
+    public function encodeValue($value): array
+    {
+        if ($value instanceof \Google\Cloud\Core\Timestamp) {
+            return ['timestampValue' => $value->get()->format('Y-m-d\TH:i:s\Z')];
+        } elseif ($value instanceof \DateTime || $value instanceof \DateTimeInterface) {
+            return ['timestampValue' => $value->format('Y-m-d\TH:i:s\Z')];
+        } elseif (is_string($value)) {
+            return ['stringValue' => $value];
+        } elseif (is_int($value)) {
+            return ['integerValue' => (string) $value];
+        } elseif (is_float($value)) {
+            return ['doubleValue' => $value];
+        } elseif (is_bool($value)) {
+            return ['booleanValue' => $value];
+        } elseif (is_null($value)) {
+            return ['nullValue' => null];
+        } elseif (is_array($value)) {
+            // Empty array → Firestore arrayValue with empty values
+            if (empty($value)) {
+                return ['arrayValue' => ['values' => []]];
+            }
+            // Sequential array (list) vs associative (map)
+            if (array_values($value) === $value) {
+                $arrayValues = [];
+                foreach ($value as $item) {
+                    $arrayValues[] = $this->encodeValue($item);
+                }
+                return ['arrayValue' => ['values' => $arrayValues]];
+            }
+            return ['mapValue' => ['fields' => $this->encodeFields($value)]];
+        }
+        return ['nullValue' => null];
+    }
+
+    public function list($collection)
+    {
+        $allDocuments = [];
+        $pageToken = null;
+
+        do {
+            $url = "https://firestore.googleapis.com/v1/projects/{$this->projectId}/databases/(default)/documents/{$collection}?pageSize=100";
+            if ($pageToken) {
+                $url .= '&pageToken=' . urlencode($pageToken);
+            }
+
+            $ch = curl_init($url);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                'Authorization: Bearer ' . $this->accessToken
+            ]);
+
+            $response = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
+
+            if ($httpCode !== 200) {
+                break;
+            }
+
+            $data = json_decode($response, true);
+            $documents = $data['documents'] ?? [];
+            $allDocuments = array_merge($allDocuments, $documents);
+            $pageToken = $data['nextPageToken'] ?? null;
+        } while ($pageToken);
+
+        return $allDocuments;
     }
 }
 
@@ -273,6 +355,16 @@ class FirestoreCollection
     {
         return new FirestoreDocumentReference($this->client, $this->name . '/' . $id);
     }
+
+    public function add(array $data)
+    {
+        $result = $this->client->createDocument($this->name, $data);
+        if ($result && isset($result['name'])) {
+            $docId = basename($result['name']);
+            return new FirestoreDocumentReference($this->client, $this->name . '/' . $docId);
+        }
+        return null;
+    }
 }
 
 class FirestoreDocumentReference
@@ -295,6 +387,44 @@ class FirestoreDocumentReference
     public function collection($name)
     {
         return new FirestoreCollection($this->client, $this->path . '/' . $name);
+    }
+
+    public function update(array $updates)
+    {
+        $fields = [];
+        $updateMask = [];
+
+        foreach ($updates as $update) {
+            if (isset($update['path']) && array_key_exists('value', $update)) {
+                $path = $update['path'];
+                $updateMask[] = $path;
+                $fields[$path] = $update['value'];
+            }
+        }
+
+        return $this->client->patch($this->path, $fields, $updateMask);
+    }
+
+    public function set(array $data, array $options = [])
+    {
+        $merge = $options['merge'] ?? false;
+
+        if ($merge) {
+            $updateMask = array_keys($data);
+            return $this->client->patch($this->path, $data, $updateMask);
+        }
+
+        return $this->client->patch($this->path, $data);
+    }
+
+    public function delete()
+    {
+        return $this->client->deleteDocument($this->path);
+    }
+
+    public function id()
+    {
+        return basename($this->path);
     }
 }
 

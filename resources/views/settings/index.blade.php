@@ -102,14 +102,44 @@
                          </div>
                     </div>
 
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div>
-                             <label class="block text-sm font-medium text-[#111418] dark:text-gray-300 mb-2">{{ __('messages.opening_time_label') }}</label>
-                             <input type="time" name="open_time" value="{{ $clinic['working_hours']['start'] ?? '09:00' }}" class="w-full bg-background-light dark:bg-[#111821] border border-[#e5e7eb] dark:border-[#2d3748] rounded-lg px-4 py-2 text-[#111418] dark:text-white focus:ring-2 focus:ring-primary focus:outline-none">
+                    <div>
+                         <label class="block text-sm font-medium text-[#111418] dark:text-gray-300 mb-2">
+                            Follow-up Window (days)
+                            <span class="text-xs text-[#637388] ml-2">Free follow-up period after initial treatment</span>
+                         </label>
+                         <div class="flex items-center gap-4">
+                             <input type="number" name="follow_up_window_days" value="{{ $clinic['follow_up_window_days'] ?? 30 }}" min="1" max="365" class="w-32 bg-background-light dark:bg-[#111821] border border-[#e5e7eb] dark:border-[#2d3748] rounded-lg px-4 py-2 text-[#111418] dark:text-white focus:ring-2 focus:ring-primary focus:outline-none">
+                             <span class="text-sm text-[#637388]">days</span>
+                         </div>
+                    </div>
+
+                    {{-- Morning Session --}}
+                    <div class="p-3 rounded-lg border border-[#e5e7eb] dark:border-[#2d3748]">
+                        <h4 class="text-sm font-medium text-[#111418] dark:text-gray-300 mb-3">{{ __('messages.morning') ?? 'Morning Session' }}</h4>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                 <label class="block text-sm font-medium text-[#111418] dark:text-gray-300 mb-2">{{ __('messages.opening_time_label') }}</label>
+                                 <input type="time" name="open_time_am" value="{{ $clinic['working_hours']['am']['start'] ?? $clinic['working_hours']['start'] ?? '08:00' }}" class="w-full bg-background-light dark:bg-[#111821] border border-[#e5e7eb] dark:border-[#2d3748] rounded-lg px-4 py-2 text-[#111418] dark:text-white focus:ring-2 focus:ring-primary focus:outline-none">
+                            </div>
+                             <div>
+                                 <label class="block text-sm font-medium text-[#111418] dark:text-gray-300 mb-2">{{ __('messages.closing_time_label') }}</label>
+                                 <input type="time" name="close_time_am" value="{{ $clinic['working_hours']['am']['end'] ?? $clinic['working_hours']['end'] ?? '12:00' }}" class="w-full bg-background-light dark:bg-[#111821] border border-[#e5e7eb] dark:border-[#2d3748] rounded-lg px-4 py-2 text-[#111418] dark:text-white focus:ring-2 focus:ring-primary focus:outline-none">
+                            </div>
                         </div>
-                         <div>
-                             <label class="block text-sm font-medium text-[#111418] dark:text-gray-300 mb-2">{{ __('messages.closing_time_label') }}</label>
-                             <input type="time" name="close_time" value="{{ $clinic['working_hours']['end'] ?? '17:00' }}" class="w-full bg-background-light dark:bg-[#111821] border border-[#e5e7eb] dark:border-[#2d3748] rounded-lg px-4 py-2 text-[#111418] dark:text-white focus:ring-2 focus:ring-primary focus:outline-none">
+                    </div>
+
+                    {{-- Evening Session --}}
+                    <div class="p-3 rounded-lg border border-[#e5e7eb] dark:border-[#2d3748]">
+                        <h4 class="text-sm font-medium text-[#111418] dark:text-gray-300 mb-3">{{ __('messages.evening') ?? 'Evening Session' }}</h4>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                 <label class="block text-sm font-medium text-[#111418] dark:text-gray-300 mb-2">{{ __('messages.opening_time_label') }}</label>
+                                 <input type="time" name="open_time_pm" value="{{ $clinic['working_hours']['pm']['start'] ?? '16:00' }}" class="w-full bg-background-light dark:bg-[#111821] border border-[#e5e7eb] dark:border-[#2d3748] rounded-lg px-4 py-2 text-[#111418] dark:text-white focus:ring-2 focus:ring-primary focus:outline-none">
+                            </div>
+                             <div>
+                                 <label class="block text-sm font-medium text-[#111418] dark:text-gray-300 mb-2">{{ __('messages.closing_time_label') }}</label>
+                                 <input type="time" name="close_time_pm" value="{{ $clinic['working_hours']['pm']['end'] ?? '21:00' }}" class="w-full bg-background-light dark:bg-[#111821] border border-[#e5e7eb] dark:border-[#2d3748] rounded-lg px-4 py-2 text-[#111418] dark:text-white focus:ring-2 focus:ring-primary focus:outline-none">
+                            </div>
                         </div>
                     </div>
 

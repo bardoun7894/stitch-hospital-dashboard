@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Log;
 use App\Services\FirebaseService;
 use Stripe\Stripe;
 use Stripe\Webhook;
@@ -135,12 +136,71 @@ class WebhookController extends Controller
                 ['path' => 'updated_at', 'value' => $now],
             ]);
 
-            \Log::info("Payment successful for booking $bookingId, token: $newTokenNumber");
+            \Log::channel('payments')->info("Payment successful for booking $bookingId, token: $newTokenNumber");
 
-            // TODO: Send FCM notification to patient with token number
+            // Send FCM notification to patient with token number
+            $this->sendPaymentSuccessNotification($bookingId, $bookingData, $newTokenNumber);
             
         } catch (\Exception $e) {
             \Log::error('Error handling payment success: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Send notification to patient after successful payment.
+     */
+    protected function sendPaymentSuccessNotification(string $bookingId, array $bookingData, int $tokenNumber): void
+    {
+        try {
+            $userId = $bookingData['patient_id'] ?? null;
+            if (!$userId) return;
+
+            $firestore = $this->firebaseService->getFirestore();
+            $userDoc = $firestore->collection('users')->document($userId)->snapshot();
+            
+            if (!$userDoc->exists()) return;
+            
+            $userData = $userDoc->data();
+            $fcmToken = $userData['fcm_token'] ?? null;
+
+            // Get doctor and clinic names for notification
+            $doctorName = $bookingData['doctor_name'] ?? 'الطبيب';
+            $clinicName = $bookingData['clinic_name'] ?? 'العيادة';
+
+            $title = 'تم تأكيد حجزك!';
+            $body = "رقم دورك: $tokenNumber\n$doctorName - $clinicName";
+
+            // Store notification in Firestore
+            $this->firebaseService->storeNotification(
+                $userId,
+                $title,
+                $body,
+                'booking',
+                [
+                    'booking_id' => $bookingId,
+                    'token_number' => (string)$tokenNumber,
+                    'type' => 'payment_success',
+                ]
+            );
+
+            // Send push notification if FCM token exists
+            if ($fcmToken) {
+                $this->firebaseService->sendFCMNotification(
+                    $fcmToken,
+                    $title,
+                    $body,
+                    [
+                        'type' => 'payment_success',
+                        'booking_id' => $bookingId,
+                        'token_number' => (string)$tokenNumber,
+                        'user_id' => $userId,
+                    ]
+                );
+            }
+
+            \Log::channel('api')->info("Payment success notification sent to user $userId for booking $bookingId");
+        } catch (\Exception $e) {
+            \Log::error('Error sending payment success notification: ' . $e->getMessage());
         }
     }
 
@@ -169,12 +229,76 @@ class WebhookController extends Controller
                 ['path' => 'updated_at', 'value' => new \Google\Cloud\Core\Timestamp(new \DateTime())],
             ]);
 
-            \Log::info("Payment failed for booking $bookingId");
+            \Log::channel('payments')->warning("Payment failed for booking $bookingId");
 
-            // TODO: Send FCM notification to patient about payment failure
+            // Send FCM notification to patient about payment failure
+            $booking = $bookingRef->snapshot();
+            if ($booking->exists()) {
+                $this->sendPaymentFailureNotification(
+                    $bookingId,
+                    $booking->data(),
+                    $paymentIntent->last_payment_error->message ?? 'Unknown error'
+                );
+            }
             
         } catch (\Exception $e) {
             \Log::error('Error handling payment failure: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Send notification to patient after payment failure.
+     */
+    protected function sendPaymentFailureNotification(string $bookingId, array $bookingData, string $errorMessage): void
+    {
+        try {
+            $userId = $bookingData['patient_id'] ?? null;
+            if (!$userId) return;
+
+            $firestore = $this->firebaseService->getFirestore();
+            $userDoc = $firestore->collection('users')->document($userId)->snapshot();
+            
+            if (!$userDoc->exists()) return;
+            
+            $userData = $userDoc->data();
+            $fcmToken = $userData['fcm_token'] ?? null;
+
+            $doctorName = $bookingData['doctor_name'] ?? 'الطبيب';
+            $clinicName = $bookingData['clinic_name'] ?? 'العيادة';
+
+            $title = 'فشلت عملية الدفع';
+            $body = "لم تتم عملية الدفع لحجزك مع $doctorName في $clinicName. يرجى المحاولة مرة أخرى.";
+
+            // Store notification in Firestore
+            $this->firebaseService->storeNotification(
+                $userId,
+                $title,
+                $body,
+                'payment',
+                [
+                    'booking_id' => $bookingId,
+                    'type' => 'payment_failed',
+                    'error' => $errorMessage,
+                ]
+            );
+
+            // Send push notification if FCM token exists
+            if ($fcmToken) {
+                $this->firebaseService->sendFCMNotification(
+                    $fcmToken,
+                    $title,
+                    $body,
+                    [
+                        'type' => 'payment_failed',
+                        'booking_id' => $bookingId,
+                        'user_id' => $userId,
+                    ]
+                );
+            }
+
+            \Log::channel('api')->info("Payment failure notification sent to user $userId for booking $bookingId");
+        } catch (\Exception $e) {
+            \Log::error('Error sending payment failure notification: ' . $e->getMessage());
         }
     }
 

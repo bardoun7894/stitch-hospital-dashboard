@@ -5,114 +5,127 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{{ __('messages.login') }} - {{ __('messages.app_name') }}</title>
 
-    <!-- Google Fonts: Inter, Cairo -->
+    <!-- Google Fonts: Inter, Cairo & Material Symbols -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Cairo:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
 
     <!-- Vite Assets -->
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
-<body class="bg-gray-100 dark:bg-gray-900 h-full font-display">
-    <div class="min-h-full flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-        <div class="max-w-md w-full space-y-8">
-            <!-- Logo/Header -->
-            <div class="text-center">
-                <div class="mx-auto h-16 w-16 flex items-center justify-center rounded-full bg-primary-600 text-white text-2xl font-bold">
-                    C
+<body class="bg-background-light dark:bg-background-dark h-full font-sans antialiased flex items-center justify-center p-4">
+    
+    <!-- Login Card -->
+    <div class="max-w-md w-full bg-white dark:bg-surface-dark rounded-2xl shadow-xl border border-border-light dark:border-border-dark overflow-hidden relative">
+        <!-- Decorative Top Bar -->
+        <div class="h-2 w-full bg-gradient-to-r from-primary to-primary-hover"></div>
+
+        <div class="p-8 sm:p-10">
+            <!-- Header -->
+            <div class="text-center mb-8">
+                <div class="mx-auto size-14 flex items-center justify-center rounded-xl bg-primary/10 text-primary text-3xl font-bold mb-4">
+                    S
                 </div>
-                <h2 class="mt-6 text-3xl font-extrabold text-gray-900 dark:text-white">
-                    {{ __('messages.login_title', [], 'تسجيل الدخول') }}
+                <h2 class="text-2xl font-bold text-text-main-light dark:text-white tracking-tight">
+                    {{ __('messages.login_title', [], 'Welcome Back') }}
                 </h2>
-                <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">
-                    {{ __('messages.login_subtitle', [], 'لوحة تحكم العيادة') }}
+                <p class="text-sm text-text-sub-light dark:text-text-sub-dark mt-2">
+                    {{ __('messages.login_subtitle', [], 'Sign in to your account') }}
                 </p>
             </div>
 
             <!-- Login Form -->
-            <form class="mt-8 space-y-6" action="{{ route('login.submit') }}" method="POST">
+            <form class="space-y-6" action="{{ route('login.submit') }}" method="POST">
                 @csrf
                 
-                <!-- Error Messages -->
                 @if ($errors->any())
-                    <div class="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg p-4">
-                        <div class="flex">
-                            <div class="flex-shrink-0">
-                                <svg class="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
-                                </svg>
-                            </div>
-                            <div class="ms-3">
-                                <ul class="text-sm text-red-700 dark:text-red-300">
-                                    @foreach ($errors->all() as $error)
-                                        <li>{{ $error }}</li>
-                                    @endforeach
-                                </ul>
-                            </div>
+                    <div class="bg-rose-50 dark:bg-rose-500/10 border border-rose-100 dark:border-rose-500/20 rounded-lg p-4 flex gap-3 items-start">
+                        <span class="material-symbols-outlined text-rose-500 text-sm mt-0.5">error</span>
+                        <div class="text-sm text-rose-600 dark:text-rose-400">
+                             <ul class="list-disc list-inside">
+                                @foreach ($errors->all() as $error)
+                                    <li>{{ $error }}</li>
+                                @endforeach
+                            </ul>
                         </div>
                     </div>
                 @endif
 
-                <!-- Session Error -->
                 @if (session('error'))
-                    <div class="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg p-4">
-                        <p class="text-sm text-red-700 dark:text-red-300">{{ session('error') }}</p>
+                    <div class="bg-rose-50 dark:bg-rose-500/10 border border-rose-100 dark:border-rose-500/20 rounded-lg p-4 flex gap-3 items-start">
+                        <span class="material-symbols-outlined text-rose-500 text-sm mt-0.5">error</span>
+                        <p class="text-sm text-rose-600 dark:text-rose-400">{{ session('error') }}</p>
                     </div>
                 @endif
 
-                <div class="space-y-4">
+                <div class="space-y-5">
                     <!-- Email -->
                     <div>
-                        <label for="email" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                            {{ __('messages.email', [], 'البريد الإلكتروني') }}
+                        <label for="email" class="block text-sm font-medium text-text-main-light dark:text-white mb-1.5">
+                            {{ __('messages.email', [], 'Email Address') }}
                         </label>
-                        <input 
-                            id="email" 
-                            name="email" 
-                            type="email" 
-                            autocomplete="email" 
-                            required 
-                            value="{{ old('email') }}"
-                            class="mt-1 appearance-none relative block w-full px-3 py-3 border border-gray-300 dark:border-gray-600 placeholder-gray-500 text-gray-900 dark:text-white dark:bg-gray-800 rounded-lg focus:outline-none focus:ring-primary-500 focus:border-primary-500 focus:z-10 sm:text-sm"
-                            placeholder="{{ __('messages.email_placeholder', [], 'أدخل بريدك الإلكتروني') }}"
-                        >
+                        <div class="relative">
+                            <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-text-sub-light/50 pointer-events-none">mail</span>
+                            <input 
+                                id="email" 
+                                name="email" 
+                                type="email" 
+                                autocomplete="email" 
+                                required 
+                                value="{{ old('email') }}"
+                                class="w-full pl-10 pr-4 py-2.5 bg-background-light dark:bg-background-dark border border-border-light dark:border-border-dark rounded-lg text-text-main-light dark:text-white placeholder-text-sub-light/50 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all shadow-sm"
+                                placeholder="{{ __('messages.email_placeholder', [], 'name@clinic.com') }}"
+                            >
+                        </div>
                     </div>
 
                     <!-- Password -->
                     <div>
-                        <label for="password" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                            {{ __('messages.password', [], 'كلمة المرور') }}
-                        </label>
-                        <input 
-                            id="password" 
-                            name="password" 
-                            type="password" 
-                            autocomplete="current-password" 
-                            required 
-                            class="mt-1 appearance-none relative block w-full px-3 py-3 border border-gray-300 dark:border-gray-600 placeholder-gray-500 text-gray-900 dark:text-white dark:bg-gray-800 rounded-lg focus:outline-none focus:ring-primary-500 focus:border-primary-500 focus:z-10 sm:text-sm"
-                            placeholder="{{ __('messages.password_placeholder', [], 'أدخل كلمة المرور') }}"
-                        >
+                        <div class="flex items-center justify-between mb-1.5">
+                            <label for="password" class="block text-sm font-medium text-text-main-light dark:text-white">
+                                {{ __('messages.password', [], 'Password') }}
+                            </label>
+                            <a href="#" class="text-sm font-medium text-primary hover:text-primary-hover transition-colors">
+                                {{ __('messages.forgot_password', [], 'Forgot?') }}
+                            </a>
+                        </div>
+                         <div class="relative">
+                            <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-text-sub-light/50 pointer-events-none">lock</span>
+                            <input 
+                                id="password" 
+                                name="password" 
+                                type="password" 
+                                autocomplete="current-password" 
+                                required 
+                                class="w-full pl-10 pr-4 py-2.5 bg-background-light dark:bg-background-dark border border-border-light dark:border-border-dark rounded-lg text-text-main-light dark:text-white placeholder-text-sub-light/50 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all shadow-sm"
+                                placeholder="••••••••"
+                            >
+                        </div>
                     </div>
                 </div>
 
-                <!-- Submit Button -->
-                <div>
-                    <button 
-                        type="submit" 
-                        class="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 transition-colors"
-                    >
-                        {{ __('messages.login_button', [], 'تسجيل الدخول') }}
-                    </button>
+                <div class="flex items-center">
+                    <input id="remember-me" name="remember-me" type="checkbox" class="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded">
+                    <label for="remember-me" class="ml-2 block text-sm text-text-sub-light dark:text-text-sub-dark">
+                        {{ __('messages.remember_me', [], 'Remember me') }}
+                    </label>
                 </div>
+
+                <button 
+                    type="submit" 
+                    class="w-full flex justify-center py-2.5 px-4 border border-transparent rounded-lg shadow-sm text-sm font-bold text-white bg-primary hover:bg-primary-hover focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-all active:scale-[0.98]"
+                >
+                    {{ __('messages.login_button', [], 'Sign In') }}
+                </button>
             </form>
 
             <!-- Language Switcher -->
-            <div class="flex justify-center space-x-4 rtl:space-x-reverse">
-                <a href="{{ route('switch-to-arabic') }}" class="text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 {{ app()->getLocale() === 'ar' ? 'font-bold text-primary-600' : '' }}">
+            <div class="mt-8 pt-6 border-t border-border-light dark:border-border-dark flex justify-center gap-4">
+                <a href="{{ route('switch-to-arabic') }}" class="text-xs font-medium px-3 py-1 rounded-full transition-colors {{ app()->getLocale() === 'ar' ? 'bg-primary/10 text-primary' : 'text-text-sub-light hover:text-text-main-light dark:text-text-sub-dark dark:hover:text-white' }}">
                     العربية
                 </a>
-                <span class="text-gray-300">|</span>
-                <a href="{{ route('switch-to-english') }}" class="text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 {{ app()->getLocale() === 'en' ? 'font-bold text-primary-600' : '' }}">
+                <a href="{{ route('switch-to-english') }}" class="text-xs font-medium px-3 py-1 rounded-full transition-colors {{ app()->getLocale() === 'en' ? 'bg-primary/10 text-primary' : 'text-text-sub-light hover:text-text-main-light dark:text-text-sub-dark dark:hover:text-white' }}">
                     English
                 </a>
             </div>

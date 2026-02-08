@@ -113,8 +113,45 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
+    // ─── Treatment Plans (doctor-patient follow-up) ───
+
+    match /treatment_plans/{planId} {
+      allow read: if isAuthenticated() && (
+        resource.data.patient_id == request.auth.uid ||
+        resource.data.doctor_id == request.auth.uid ||
+        isStaff()
+      );
+      allow create: if isAuthenticated() && (hasRole('doctor') || isAdmin());
+      allow update: if isAuthenticated() && (
+        (resource.data.doctor_id == request.auth.uid && hasRole('doctor')) || isAdmin()
+      );
+      allow delete: if isAdmin();
+    }
+
+    // ─── Prescriptions/Medications ───
+
+    match /prescriptions/{prescriptionId} {
+      allow read: if isAuthenticated() && (
+        resource.data.patient_id == request.auth.uid ||
+        resource.data.doctor_id == request.auth.uid ||
+        isStaff()
+      );
+      allow create: if isAuthenticated() && (hasRole('doctor') || isAdmin());
+      allow update: if isAuthenticated() && (
+        // Patient can toggle reminders
+        (resource.data.patient_id == request.auth.uid && 
+         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reminders_enabled', 'updated_at'])) ||
+        // Doctor who created it can update
+        (resource.data.doctor_id == request.auth.uid && hasRole('doctor')) || 
+        isAdmin()
+      );
+      allow delete: if isAuthenticated() && (
+        (resource.data.doctor_id == request.auth.uid && hasRole('doctor')) || isAdmin()
+      );
+    }
+
     // ─── Queue States (public read, staff write) ───
-    
+
     match /queue_states/{queueId} {
       allow read: if true;
       allow write: if isStaff();

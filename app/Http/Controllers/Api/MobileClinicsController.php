@@ -116,9 +116,19 @@ class MobileClinicsController extends Controller
                 $validated['date']
             );
 
+            // Include working-hours session info so the mobile app can display schedule
+            $hoursCheck = $this->firebaseService->isWithinWorkingHours($clinicId, $doctorId);
+
             return response()->json([
                 'success' => true,
-                'data' => $slots
+                'data' => [
+                    'slots' => $slots,
+                    'working_hours' => [
+                        'within_hours' => $hoursCheck['within_hours'],
+                        'sessions' => $hoursCheck['sessions'],
+                        'message' => $hoursCheck['message'],
+                    ],
+                ],
             ]);
         } catch (\Exception $e) {
             \Log::error('Get slots error: ' . $e->getMessage());
@@ -149,5 +159,83 @@ class MobileClinicsController extends Controller
             $doctor['name'] = $doctor['name_en'];
         }
         return $doctor;
+    }
+
+    /**
+     * Get clinics and doctors by specialty
+     * GET /api/mobile/specialties/{specialty}
+     */
+    public function getBySpecialty(Request $request, string $specialty): JsonResponse
+    {
+        $locale = $request->input('locale', 'ar');
+
+        try {
+            $clinics = $this->firebaseService->getClinicsBySpecialty($specialty);
+            $doctors = $this->firebaseService->getDoctorsBySpecialty($specialty);
+
+            // Apply localization
+            $localizedClinics = array_map(function ($clinic) use ($locale) {
+                return $this->localizeClinic($clinic, $locale);
+            }, $clinics);
+
+            $localizedDoctors = array_map(function ($doctor) use ($locale) {
+                return $this->localizeDoctor($doctor, $locale);
+            }, $doctors);
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'clinics' => $localizedClinics,
+                    'doctors' => $localizedDoctors,
+                ]
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Get by specialty error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to get data for specialty'
+            ], 500);
+        }
+    }
+
+    /**
+     * Search across clinics, doctors, and hospitals
+     * GET /api/mobile/search?q=query
+     */
+    public function search(Request $request): JsonResponse
+    {
+        $query = $request->input('q', '');
+        $locale = $request->input('locale', 'ar');
+
+        try {
+            $results = $this->firebaseService->searchAll($query);
+
+            // Apply localization
+            $results['clinics'] = array_map(function ($clinic) use ($locale) {
+                return $this->localizeClinic($clinic, $locale);
+            }, $results['clinics']);
+
+            $results['doctors'] = array_map(function ($doctor) use ($locale) {
+                return $this->localizeDoctor($doctor, $locale);
+            }, $results['doctors']);
+
+            $results['hospitals'] = array_map(function ($hospital) use ($locale) {
+                if ($locale === 'en' && isset($hospital['name_en'])) {
+                    $hospital['name'] = $hospital['name_en'];
+                }
+                return $hospital;
+            }, $results['hospitals']);
+
+            return response()->json([
+                'success' => true,
+                'data' => $results,
+            ]);
+        } catch (\Exception $e) {
+            \Log::error('Search error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'Search failed'
+            ], 500);
+        }
     }
 }

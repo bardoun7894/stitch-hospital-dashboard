@@ -62,8 +62,15 @@ class LoginController extends Controller
         }
 
         // Check if user has staff role (not patient)
+        // Map legacy/shorthand roles to canonical role names
+        $roleMapping = [
+            'admin' => 'super_admin',
+            'manager' => 'hospital_manager',
+            'nurse' => 'reception',
+        ];
         $allowedRoles = ['reception', 'doctor', 'clinic_admin', 'hospital_manager', 'super_admin'];
         $userRole = $user['role'] ?? 'patient';
+        $userRole = $roleMapping[$userRole] ?? $userRole;
 
         if (!in_array($userRole, $allowedRoles)) {
             return back()->withErrors([
@@ -71,11 +78,17 @@ class LoginController extends Controller
             ])->withInput(['email' => $email]);
         }
 
-        // For MVP: Simple password check (in production, use Firebase Auth SDK)
-        // This is a temporary solution - production should use Firebase Auth
+        // Verify password against stored bcrypt hash
         $storedPassword = $user['password_hash'] ?? null;
-        
-        if ($storedPassword && !password_verify($password, $storedPassword)) {
+
+        if (!$storedPassword) {
+            // Account has no password set -- block login until password is configured
+            return back()->withErrors([
+                'email' => 'هذا الحساب غير مفعّل. يرجى التواصل مع المسؤول لتعيين كلمة مرور.',
+            ])->withInput(['email' => $email]);
+        }
+
+        if (!password_verify($password, $storedPassword)) {
             return back()->withErrors([
                 'password' => __('auth.password'),
             ])->withInput(['email' => $email]);
@@ -87,6 +100,7 @@ class LoginController extends Controller
         Session::put('firebase_user_role', $userRole);
         Session::put('firebase_user_name', $user['name'] ?? 'User');
         Session::put('firebase_user_clinic_id', $user['clinic_id'] ?? null);
+        Session::put('firebase_user_hospital_id', $user['hospital_id'] ?? null);
 
         return redirect()->intended(route('dashboard'));
     }
@@ -102,6 +116,7 @@ class LoginController extends Controller
             'firebase_user_role',
             'firebase_user_name',
             'firebase_user_clinic_id',
+            'firebase_user_hospital_id',
         ]);
 
         $request->session()->invalidate();

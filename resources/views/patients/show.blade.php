@@ -108,14 +108,14 @@
                     </div>
                 </div>
                 <div class="flex w-full md:w-auto gap-3">
-                    <button class="flex-1 md:flex-none h-10 px-4 items-center justify-center gap-2 rounded-lg bg-[#f2f0f4] dark:bg-gray-800 text-[#141118] dark:text-white hover:bg-gray-200 dark:hover:bg-gray-700 font-bold text-sm transition-colors border border-transparent">
-                        <span class="material-symbols-outlined text-[18px]">edit_note</span>
-                        <span>Add Note</span>
-                    </button>
-                    <button class="flex-1 md:flex-none h-10 px-4 items-center justify-center gap-2 rounded-lg bg-primary hover:bg-primary-dark text-white font-bold text-sm transition-colors shadow-lg shadow-primary/20">
-                        <span class="material-symbols-outlined text-[18px]">ios_share</span>
-                        <span>Export Record</span>
-                    </button>
+                    <a href="{{ route('patients.edit', $patient['id']) }}" class="flex-1 md:flex-none h-10 px-4 inline-flex items-center justify-center gap-2 rounded-lg bg-[#f2f0f4] dark:bg-gray-800 text-[#141118] dark:text-white hover:bg-gray-200 dark:hover:bg-gray-700 font-bold text-sm transition-colors border border-transparent">
+                        <span class="material-symbols-outlined text-[18px]">edit</span>
+                        <span>{{ __('messages.edit_patient') }}</span>
+                    </a>
+                    <a href="{{ route('patients.index') }}" class="flex-1 md:flex-none h-10 px-4 inline-flex items-center justify-center gap-2 rounded-lg bg-primary hover:bg-primary-dark text-white font-bold text-sm transition-colors shadow-lg shadow-primary/20">
+                        <span class="material-symbols-outlined text-[18px]">arrow_back</span>
+                        <span>{{ __('messages.back') }}</span>
+                    </a>
                 </div>
             </div>
         </div>

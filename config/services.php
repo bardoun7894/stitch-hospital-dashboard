@@ -41,4 +41,22 @@ return [
         'webhook_secret' => env('STRIPE_WEBHOOK_SECRET'),
     ],
 
+    'firebase' => [
+        'allow_mock_fallback' => env('FIREBASE_ALLOW_MOCK_FALLBACK', false),
+    ],
+
+    'sms' => [
+        'provider' => env('SMS_PROVIDER', 'log'),
+        'from' => env('SMS_FROM'),
+        'twilio' => [
+            'sid' => env('TWILIO_SID'),
+            'auth_token' => env('TWILIO_AUTH_TOKEN'),
+            'from' => env('TWILIO_FROM'),
+        ],
+        'unifonic' => [
+            'app_sid' => env('UNIFONIC_APP_SID'),
+            'sender' => env('UNIFONIC_SENDER', env('SMS_FROM')),
+        ],
+    ],
+
 ];

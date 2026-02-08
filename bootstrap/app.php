@@ -11,6 +11,14 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
+    ->withSchedule(function (\Illuminate\Console\Scheduling\Schedule $schedule): void {
+        // Send medication dose reminders every 5 minutes
+        $schedule->command('medications:send-reminders --window=5')
+            ->everyFiveMinutes()
+            ->withoutOverlapping()
+            ->runInBackground()
+            ->appendOutputTo(storage_path('logs/dose-reminders.log'));
+    })
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->web(append: [
             \App\Http\Middleware\SetLocale::class,
@@ -19,6 +27,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'role' => \App\Http\Middleware\RoleMiddleware::class,
             'locale' => \App\Http\Middleware\SetLocale::class,
             'firebase.auth' => \App\Http\Middleware\VerifyFirebaseToken::class,
+            'auth.session' => \App\Http\Middleware\AuthFirebaseSession::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

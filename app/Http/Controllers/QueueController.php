@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Services\FirebaseService;
+use App\Http\Middleware\RoleMiddleware;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 
@@ -33,8 +34,11 @@ class QueueController extends Controller
     public function index(Request $request): JsonResponse
     {
         try {
-            $queueData = $this->firebaseService->getQueueData();
-            
+            $currentUser = RoleMiddleware::getCurrentUser();
+            $clinicId = $request->query('clinic_id') ?: ($currentUser['clinic_id'] ?? null);
+
+            $queueData = $this->firebaseService->getQueueData($clinicId);
+
             return response()->json([
                 'success' => true,
                 'data' => $queueData,

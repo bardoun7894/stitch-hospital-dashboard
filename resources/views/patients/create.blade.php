@@ -45,6 +45,13 @@
                         placeholder="{{ __('messages.email_placeholder') }}">
                 </div>
 
+                <div>
+                    <label for="national_id" class="block text-sm font-medium text-[#111418] dark:text-white mb-2">National ID</label>
+                    <input type="text" name="national_id" id="national_id"
+                        class="w-full px-4 py-2 rounded-lg border border-[#e5e7eb] dark:border-[#2d3748] bg-white dark:bg-[#111821] text-[#111418] dark:text-white focus:outline-none focus:ring-2 focus:ring-primary/50"
+                        placeholder="National ID (optional)">
+                </div>
+
                 <div class="pt-4 flex justify-end gap-3">
                     <a href="{{ route('patients.index') }}"
                         class="px-6 py-2 rounded-lg border border-[#e5e7eb] dark:border-[#2d3748] text-[#637388] dark:text-[#9ca3af] hover:bg-gray-50 dark:hover:bg-[#202a37] font-medium transition-colors">

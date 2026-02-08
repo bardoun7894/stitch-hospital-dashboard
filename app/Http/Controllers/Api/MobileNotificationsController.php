@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Services\FirebaseService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Log;
 
 class MobileNotificationsController extends Controller
 {
@@ -22,16 +23,23 @@ class MobileNotificationsController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
+        $userId = $this->resolveUserId($request);
+        if (!$userId) {
+            return response()->json([
+                'success' => false,
+                'message' => __('messages.authentication_failed')
+            ], 401);
+        }
+
         try {
-            $userId = $request->input('firebase_user')['uid'];
             $notifications = $this->firebaseService->getUserNotifications($userId);
 
             return response()->json([
                 'success' => true,
                 'data' => $notifications
             ]);
-        } catch (\Exception $e) {
-            \Log::error('Get notifications error: ' . $e->getMessage());
+        } catch (\Throwable $e) {
+            Log::error('Get notifications error: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to get notifications'
@@ -45,16 +53,23 @@ class MobileNotificationsController extends Controller
      */
     public function markRead(Request $request, string $notificationId): JsonResponse
     {
+        $userId = $this->resolveUserId($request);
+        if (!$userId) {
+            return response()->json([
+                'success' => false,
+                'message' => __('messages.authentication_failed')
+            ], 401);
+        }
+
         try {
-            $userId = $request->input('firebase_user')['uid'];
             $this->firebaseService->markNotificationRead($userId, $notificationId);
 
             return response()->json([
                 'success' => true,
                 'message' => 'Notification marked as read'
             ]);
-        } catch (\Exception $e) {
-            \Log::error('Mark notification read error: ' . $e->getMessage());
+        } catch (\Throwable $e) {
+            Log::error('Mark notification read error: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to mark notification as read'
@@ -68,16 +83,23 @@ class MobileNotificationsController extends Controller
      */
     public function markAllRead(Request $request): JsonResponse
     {
+        $userId = $this->resolveUserId($request);
+        if (!$userId) {
+            return response()->json([
+                'success' => false,
+                'message' => __('messages.authentication_failed')
+            ], 401);
+        }
+
         try {
-            $userId = $request->input('firebase_user')['uid'];
             $count = $this->firebaseService->markAllNotificationsRead($userId);
 
             return response()->json([
                 'success' => true,
                 'message' => "Marked {$count} notifications as read"
             ]);
-        } catch (\Exception $e) {
-            \Log::error('Mark all notifications read error: ' . $e->getMessage());
+        } catch (\Throwable $e) {
+            Log::error('Mark all notifications read error: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to mark notifications as read'
@@ -91,8 +113,15 @@ class MobileNotificationsController extends Controller
      */
     public function saveFcmToken(Request $request): JsonResponse
     {
+        $userId = $this->resolveUserId($request);
+        if (!$userId) {
+            return response()->json([
+                'success' => false,
+                'message' => __('messages.authentication_failed')
+            ], 401);
+        }
+
         try {
-            $userId = $request->input('firebase_user')['uid'];
             $token = $request->input('token');
 
             if (!$token) {
@@ -108,12 +137,18 @@ class MobileNotificationsController extends Controller
                 'success' => true,
                 'message' => 'FCM token saved'
             ]);
-        } catch (\Exception $e) {
-            \Log::error('Save FCM token error: ' . $e->getMessage());
+        } catch (\Throwable $e) {
+            Log::error('Save FCM token error: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to save FCM token'
             ], 500);
         }
+    }
+
+    private function resolveUserId(Request $request): ?string
+    {
+        $uid = data_get($request->input('firebase_user'), 'uid');
+        return is_string($uid) && $uid !== '' ? $uid : null;
     }
 }

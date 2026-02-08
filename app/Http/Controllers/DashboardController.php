@@ -3,7 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Services\FirebaseService;
+use App\Http\Middleware\RoleMiddleware;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class DashboardController extends Controller
 {
@@ -16,17 +18,55 @@ class DashboardController extends Controller
 
     public function index()
     {
-        $bookings = $this->firebase->getBookings();
+        try {
+            $currentUser = RoleMiddleware::getCurrentUser();
+            $role = $currentUser['role'] ?? 'patient';
+            $clinicId = $currentUser['clinic_id'] ?? null;
+            $hospitalId = $currentUser['hospital_id'] ?? null;
 
-        // Get real-time stats from Firebase (falls back to mock if no data)
-        $stats = $this->firebase->getDashboardStats();
+            // getClinics() returns computed dashboard fields (icon_color, patients_waiting, etc.)
+            $allClinics = $this->firebase->getClinics();
 
-        // Get clinics for the table
-        $clinics = $this->firebase->getClinics();
+            // Scope data based on role
+            if ($role === 'super_admin') {
+                $bookings = $this->firebase->getBookings();
+                $clinics = $allClinics;
+            } elseif ($role === 'hospital_manager' && $hospitalId) {
+                $clinics = array_values(array_filter($allClinics, fn($c) => ($c['hospital_id'] ?? null) === $hospitalId));
+                $firstClinicId = !empty($clinics) ? ($clinics[0]['id'] ?? null) : null;
+                $bookings = $this->firebase->getBookings(20, null, null, $firstClinicId);
+            } elseif ($clinicId) {
+                $clinics = array_values(array_filter($allClinics, fn($c) => ($c['id'] ?? null) === $clinicId));
+                $bookings = $this->firebase->getBookings(20, null, null, $clinicId);
+            } else {
+                $clinics = $allClinics;
+                $bookings = $this->firebase->getBookings();
+            }
 
-        // Get alerts
-        $alerts = $this->firebase->getAlerts();
+            $stats = $this->firebase->getDashboardStats();
+            $alerts = $this->firebase->getAlerts();
 
-        return view('dashboard.index', compact('stats', 'bookings', 'clinics', 'alerts'));
+            return view('dashboard.index', compact('stats', 'bookings', 'clinics', 'alerts'));
+        } catch (\Throwable $e) {
+            Log::error('Dashboard load error: ' . $e->getMessage());
+
+            $stats = [
+                'total' => '0',
+                'waiting' => '0',
+                'avg_wait' => '0m',
+                'no_show' => '0%',
+                'total_trend' => '0%',
+                'total_trend_type' => 'neutral',
+                'waiting_trend' => '0%',
+                'waiting_trend_type' => 'neutral',
+            ];
+
+            $bookings = ['data' => [], 'next_cursor' => null];
+            $clinics = [];
+            $alerts = [];
+
+            return view('dashboard.index', compact('stats', 'bookings', 'clinics', 'alerts'))
+                ->with('error', __('messages.unknown_error'));
+        }
     }
 }

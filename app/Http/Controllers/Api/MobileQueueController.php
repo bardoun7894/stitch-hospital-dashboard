@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Services\FirebaseService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Log;
 
 class MobileQueueController extends Controller
 {
@@ -39,8 +40,8 @@ class MobileQueueController extends Controller
                 'success' => true,
                 'data' => $queueState
             ]);
-        } catch (\Exception $e) {
-            \Log::error('Get queue status error: ' . $e->getMessage());
+        } catch (\Throwable $e) {
+            Log::error('Get queue status error: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => __('messages.failed_to_get_queue_status')
@@ -54,7 +55,13 @@ class MobileQueueController extends Controller
      */
     public function getMyPosition(Request $request): JsonResponse
     {
-        $userId = $request->input('firebase_user')['uid'];
+        $userId = $this->resolveUserId($request);
+        if (!$userId) {
+            return response()->json([
+                'success' => false,
+                'message' => __('messages.authentication_failed')
+            ], 401);
+        }
 
         $validated = $request->validate([
             'booking_id' => 'required|string',
@@ -99,12 +106,18 @@ class MobileQueueController extends Controller
                     'queue_status' => $queueState['status'] ?? 'running',
                 ]
             ]);
-        } catch (\Exception $e) {
-            \Log::error('Get my position error: ' . $e->getMessage());
+        } catch (\Throwable $e) {
+            Log::error('Get my position error: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => __('messages.failed_to_get_position')
             ], 500);
         }
+    }
+
+    private function resolveUserId(Request $request): ?string
+    {
+        $uid = data_get($request->input('firebase_user'), 'uid');
+        return is_string($uid) && $uid !== '' ? $uid : null;
     }
 }

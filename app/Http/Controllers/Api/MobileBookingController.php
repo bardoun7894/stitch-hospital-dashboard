@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Services\FirebaseService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Log;
 
 class MobileBookingController extends Controller
 {
@@ -22,7 +23,14 @@ class MobileBookingController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $userId = $request->input('firebase_user')['uid'];
+        $userId = $this->resolveUserId($request);
+        if (!$userId) {
+            return response()->json([
+                'success' => false,
+                'message' => __('messages.authentication_failed')
+            ], 401);
+        }
+
         $locale = $request->input('locale', 'ar');
 
         try {
@@ -33,8 +41,8 @@ class MobileBookingController extends Controller
                 'data' => $bookings,
                 'message' => __('messages.bookings_retrieved')
             ]);
-        } catch (\Exception $e) {
-            \Log::error('Get bookings error: ' . $e->getMessage());
+        } catch (\Throwable $e) {
+            Log::error('Get bookings error: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => __('messages.failed_to_retrieve_bookings')
@@ -48,7 +56,14 @@ class MobileBookingController extends Controller
      */
     public function show(Request $request, string $bookingId): JsonResponse
     {
-        $userId = $request->input('firebase_user')['uid'];
+        $userId = $this->resolveUserId($request);
+        if (!$userId) {
+            return response()->json([
+                'success' => false,
+                'message' => __('messages.authentication_failed')
+            ], 401);
+        }
+
         $locale = $request->input('locale', 'ar');
 
         try {
@@ -66,8 +81,8 @@ class MobileBookingController extends Controller
                 'success' => true,
                 'data' => $booking
             ]);
-        } catch (\Exception $e) {
-            \Log::error('Get booking details error: ' . $e->getMessage());
+        } catch (\Throwable $e) {
+            Log::error('Get booking details error: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => __('messages.booking_not_found')
@@ -81,7 +96,13 @@ class MobileBookingController extends Controller
      */
     public function store(Request $request): JsonResponse
     {
-        $userId = $request->input('firebase_user')['uid'];
+        $userId = $this->resolveUserId($request);
+        if (!$userId) {
+            return response()->json([
+                'success' => false,
+                'message' => __('messages.authentication_failed')
+            ], 401);
+        }
 
         $validated = $request->validate([
             'clinic_id' => 'required|string',
@@ -97,14 +118,30 @@ class MobileBookingController extends Controller
             // Denormalize doctor and patient names
             $doctorName = '';
             $patientName = '';
+            $doctor = null;
             try {
                 $doctor = $this->firebaseService->getDoctorById($validated['doctor_id']);
                 $doctorName = $doctor['name'] ?? '';
                 $patient = $this->firebaseService->getPatientDetails($userId);
                 $patientName = $patient['name'] ?? '';
-            } catch (\Exception $e) {
+            } catch (\Throwable $e) {
                 // Non-critical, continue without denormalized names
             }
+
+            // Check if current time falls within the doctor's working hours
+            $hoursCheck = $this->firebaseService->isWithinWorkingHours($validated['clinic_id'], $validated['doctor_id']);
+            if (!$hoursCheck['within_hours']) {
+                return response()->json([
+                    'success' => false,
+                    'message' => $hoursCheck['message'],
+                    'data' => ['sessions' => $hoursCheck['sessions']],
+                ], 400);
+            }
+
+            // Check if patient is eligible for a follow-up booking (time window + same clinic)
+            $followupCheck = $this->firebaseService->isFollowupEligible($validated['doctor_id'], $userId, $validated['clinic_id']);
+            $isFollowup = $followupCheck['eligible'];
+            $treatmentPlanId = $isFollowup ? ($followupCheck['plan']['id'] ?? "{$validated['doctor_id']}_{$userId}") : null;
 
             $bookingId = $this->firebaseService->createMobileBooking([
                 'patient_id' => $userId,
@@ -117,16 +154,27 @@ class MobileBookingController extends Controller
                 'doctor_name' => $doctorName,
                 'patient_name' => $patientName,
                 'status' => 'pending',
-                'payment_status' => 'unpaid',
+                'payment_status' => $isFollowup ? 'waived_followup' : 'unpaid',
+                'is_followup' => $isFollowup,
+                'treatment_plan_id' => $treatmentPlanId,
             ]);
+
+            $paymentNote = $isFollowup
+                ? null
+                : 'الدفع عند الوصول - لن يتم عرض رقم الدور الا بعد تأكيد الدفع';
 
             return response()->json([
                 'success' => true,
-                'data' => ['booking_id' => $bookingId],
+                'data' => [
+                    'booking_id' => $bookingId,
+                    'is_followup' => $isFollowup,
+                    'followup_reason' => $isFollowup ? null : ($followupCheck['reason'] ?? null),
+                    'payment_note' => $paymentNote,
+                ],
                 'message' => __('messages.booking_created')
             ], 201);
-        } catch (\Exception $e) {
-            \Log::error('Create booking error: ' . $e->getMessage());
+        } catch (\Throwable $e) {
+            Log::error('Create booking error: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => __('messages.booking_creation_error')
@@ -140,7 +188,13 @@ class MobileBookingController extends Controller
      */
     public function cancel(Request $request, string $bookingId): JsonResponse
     {
-        $userId = $request->input('firebase_user')['uid'];
+        $userId = $this->resolveUserId($request);
+        if (!$userId) {
+            return response()->json([
+                'success' => false,
+                'message' => __('messages.authentication_failed')
+            ], 401);
+        }
 
         $validated = $request->validate([
             'reason' => 'nullable|string',
@@ -162,8 +216,8 @@ class MobileBookingController extends Controller
                 'success' => true,
                 'message' => __('messages.booking_cancelled')
             ]);
-        } catch (\Exception $e) {
-            \Log::error('Cancel booking error: ' . $e->getMessage());
+        } catch (\Throwable $e) {
+            Log::error('Cancel booking error: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => __('messages.cancel_failed')
@@ -177,7 +231,13 @@ class MobileBookingController extends Controller
      */
     public function confirmArrival(Request $request, string $bookingId): JsonResponse
     {
-        $userId = $request->input('firebase_user')['uid'];
+        $userId = $this->resolveUserId($request);
+        if (!$userId) {
+            return response()->json([
+                'success' => false,
+                'message' => __('messages.authentication_failed')
+            ], 401);
+        }
 
         $validated = $request->validate([
             'latitude' => 'required|numeric',
@@ -218,8 +278,8 @@ class MobileBookingController extends Controller
                 'success' => true,
                 'message' => __('messages.arrival_confirmed')
             ]);
-        } catch (\Exception $e) {
-            \Log::error('Confirm arrival error: ' . $e->getMessage());
+        } catch (\Throwable $e) {
+            Log::error('Confirm arrival error: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => __('messages.arrival_failed')
@@ -233,7 +293,13 @@ class MobileBookingController extends Controller
      */
     public function reschedule(Request $request, string $bookingId): JsonResponse
     {
-        $userId = $request->input('firebase_user')['uid'];
+        $userId = $this->resolveUserId($request);
+        if (!$userId) {
+            return response()->json([
+                'success' => false,
+                'message' => __('messages.authentication_failed')
+            ], 401);
+        }
 
         $validated = $request->validate([
             'new_date' => 'required|date|after_or_equal:today',
@@ -264,8 +330,8 @@ class MobileBookingController extends Controller
                 'success' => true,
                 'message' => __('messages.booking_rescheduled')
             ]);
-        } catch (\Exception $e) {
-            \Log::error('Reschedule booking error: ' . $e->getMessage());
+        } catch (\Throwable $e) {
+            Log::error('Reschedule booking error: ' . $e->getMessage());
             return response()->json([
                 'success' => false,
                 'message' => __('messages.reschedule_failed')
@@ -290,5 +356,11 @@ class MobileBookingController extends Controller
         $c = 2 * atan2(sqrt($a), sqrt(1 - $a));
 
         return $earthRadius * $c;
+    }
+
+    private function resolveUserId(Request $request): ?string
+    {
+        $uid = data_get($request->input('firebase_user'), 'uid');
+        return is_string($uid) && $uid !== '' ? $uid : null;
     }
 }

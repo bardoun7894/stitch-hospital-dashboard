@@ -59,24 +59,46 @@
                     @endphp
 
                     @foreach($days as $day)
-                    <div class="flex items-center gap-4 p-3 rounded-lg border border-[#e5e7eb] dark:border-[#2d3748]">
-                        <div class="w-24 capitalize font-medium text-[#111418] dark:text-white">{{ $day }}</div>
+                    <div class="p-3 rounded-lg border border-[#e5e7eb] dark:border-[#2d3748]">
+                        <div class="capitalize font-medium text-[#111418] dark:text-white mb-2">{{ $day }}</div>
                         
-                        <input type="hidden" name="working_hours[{{ $day }}][active]" value="0">
-                        <input type="checkbox" name="working_hours[{{ $day }}][active]" value="1" 
-                            class="w-5 h-5 rounded border-gray-300 text-primary focus:ring-primary"
-                            {{ ($workingHours[$day]['active'] ?? false) ? 'checked' : '' }}>
-                        
-                        <input type="time" name="working_hours[{{ $day }}][start]" 
-                            value="{{ $workingHours[$day]['start'] ?? '09:00' }}"
-                            class="p-1 rounded border border-[#e5e7eb] dark:border-[#2d3748] bg-white dark:bg-[#1c2431] text-[#111418] dark:text-white">
+                        {{-- Morning Session --}}
+                        <div class="flex items-center gap-3 mb-2">
+                            <span class="text-xs font-medium text-[#637388] dark:text-[#9ca3af] w-16">{{ __('messages.morning') ?? 'Morning' }}</span>
+                            <input type="hidden" name="working_hours[{{ $day }}][am_active]" value="0">
+                            <input type="checkbox" name="working_hours[{{ $day }}][am_active]" value="1" 
+                                class="w-5 h-5 rounded border-gray-300 text-primary focus:ring-primary"
+                                {{ ($workingHours[$day]['am_active'] ?? false) ? 'checked' : '' }}>
+                            
+                            <input type="time" name="working_hours[{{ $day }}][am_start]" 
+                                value="{{ $workingHours[$day]['am_start'] ?? '08:00' }}"
+                                class="p-1 rounded border border-[#e5e7eb] dark:border-[#2d3748] bg-white dark:bg-[#1c2431] text-[#111418] dark:text-white text-sm">
 
+                            <span class="text-gray-500">{{ __('messages.time_separator') }}</span>
+                            
+                            <input type="time" name="working_hours[{{ $day }}][am_end]" 
+                                value="{{ $workingHours[$day]['am_end'] ?? '12:00' }}"
+                                class="p-1 rounded border border-[#e5e7eb] dark:border-[#2d3748] bg-white dark:bg-[#1c2431] text-[#111418] dark:text-white text-sm">
+                        </div>
 
-                        <span class="text-gray-500">{{ __('messages.time_separator') }}</span>
-                        
-                        <input type="time" name="working_hours[{{ $day }}][end]" 
-                            value="{{ $workingHours[$day]['end'] ?? '17:00' }}"
-                            class="p-1 rounded border border-[#e5e7eb] dark:border-[#2d3748] bg-white dark:bg-[#1c2431] text-[#111418] dark:text-white">
+                        {{-- Evening Session --}}
+                        <div class="flex items-center gap-3">
+                            <span class="text-xs font-medium text-[#637388] dark:text-[#9ca3af] w-16">{{ __('messages.evening') ?? 'Evening' }}</span>
+                            <input type="hidden" name="working_hours[{{ $day }}][pm_active]" value="0">
+                            <input type="checkbox" name="working_hours[{{ $day }}][pm_active]" value="1" 
+                                class="w-5 h-5 rounded border-gray-300 text-primary focus:ring-primary"
+                                {{ ($workingHours[$day]['pm_active'] ?? false) ? 'checked' : '' }}>
+                            
+                            <input type="time" name="working_hours[{{ $day }}][pm_start]" 
+                                value="{{ $workingHours[$day]['pm_start'] ?? '16:00' }}"
+                                class="p-1 rounded border border-[#e5e7eb] dark:border-[#2d3748] bg-white dark:bg-[#1c2431] text-[#111418] dark:text-white text-sm">
+
+                            <span class="text-gray-500">{{ __('messages.time_separator') }}</span>
+                            
+                            <input type="time" name="working_hours[{{ $day }}][pm_end]" 
+                                value="{{ $workingHours[$day]['pm_end'] ?? '21:00' }}"
+                                class="p-1 rounded border border-[#e5e7eb] dark:border-[#2d3748] bg-white dark:bg-[#1c2431] text-[#111418] dark:text-white text-sm">
+                        </div>
                     </div>
                     @endforeach
                 </div>
