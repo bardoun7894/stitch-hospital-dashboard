@@ -1,8 +1,6 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use Illuminate\Cache\RateLimiting\Limit;
-use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Api\WebhookController;
 use App\Http\Controllers\Api\MobileBookingController;
@@ -13,32 +11,6 @@ use App\Http\Controllers\Api\MobileProfileController;
 use App\Http\Controllers\Api\MobileNotificationsController;
 use App\Http\Controllers\Api\MobileTreatmentPlanController;
 use App\Http\Controllers\Api\MobileMedicationController;
-
-/*
-|--------------------------------------------------------------------------
-| Rate Limiters
-|--------------------------------------------------------------------------
-*/
-
-// General API rate limiter: 60 requests per minute per user
-RateLimiter::for('api', function (Request $request) {
-    return Limit::perMinute(60)->by($request->user()?->id ?: $request->ip());
-});
-
-// Stricter limiter for booking creation: 10 per minute
-RateLimiter::for('bookings', function (Request $request) {
-    return Limit::perMinute(10)->by($request->user()?->id ?: $request->ip());
-});
-
-// Payment limiter: 5 per minute (prevent abuse)
-RateLimiter::for('payments', function (Request $request) {
-    return Limit::perMinute(5)->by($request->user()?->id ?: $request->ip());
-});
-
-// Auth/login limiter: 5 attempts per minute
-RateLimiter::for('auth', function (Request $request) {
-    return Limit::perMinute(5)->by($request->ip());
-});
 
 /*
 |--------------------------------------------------------------------------

@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use App\Services\FirebaseService;
 use App\Http\Middleware\RoleMiddleware;
+use Illuminate\Support\Facades\Cache;
 
 class TreatmentPlanController extends Controller
 {
@@ -27,13 +28,16 @@ class TreatmentPlanController extends Controller
             $doctorId = $currentUser['id'] ?? null;
         }
 
-        $plans = $this->firebaseService->getTreatmentPlans($doctorId);
-        $doctors = $this->firebaseService->getDoctors();
+        $cacheKey = 'treatment_plans_index_' . md5("{$role}_{$doctorId}");
 
-        return view('treatment-plans.index', [
-            'plans' => $plans,
-            'doctors' => $doctors,
-        ]);
+        $data = Cache::remember($cacheKey, 30, function () use ($doctorId) {
+            return [
+                'plans' => $this->firebaseService->getTreatmentPlans($doctorId),
+                'doctors' => $this->firebaseService->getDoctors(),
+            ];
+        });
+
+        return view('treatment-plans.index', $data);
     }
 
     public function store(Request $request): JsonResponse

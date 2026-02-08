@@ -6,11 +6,19 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>{{ __('messages.app_name') }}</title>
 
-    <!-- Google Fonts: Inter, Cairo & Material Symbols -->
+    <!-- DNS prefetch & preconnect for external resources -->
+    <link rel="dns-prefetch" href="https://fonts.googleapis.com">
+    <link rel="dns-prefetch" href="https://fonts.gstatic.com">
+    <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    <!-- Google Fonts: Inter, Cairo & Material Symbols (swap for fast first paint) -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Cairo:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
+
+    <!-- Preload Alpine.js for faster interactive readiness -->
+    <link rel="preload" href="https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js" as="script">
 
     <!-- Vite Assets -->
     @vite(['resources/css/app.css', 'resources/js/app.js'])
@@ -120,8 +128,8 @@
         }
     </script>
 
-    <!-- Alpine.js for interactions -->
-    <script src="//unpkg.com/alpinejs" defer></script>
+    <!-- Alpine.js for interactions (pinned version for cacheability) -->
+    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.8/dist/cdn.min.js" defer></script>
     @yield('scripts')
 </body>
 </html>

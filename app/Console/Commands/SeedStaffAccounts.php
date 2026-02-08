@@ -103,6 +103,18 @@ class SeedStaffAccounts extends Command
     protected function getStaffAccounts(): array
     {
         return [
+            // Hatim Admin - full system access
+            [
+                'id'          => 'staff_hatim_admin',
+                'name'        => 'Hatim Admin',
+                'email'       => 'HatimAdmin@masar.com',
+                'password'    => 'Hatim1234',
+                'role'        => 'super_admin',
+                'phone'       => '+966500000000',
+                'hospital_id' => 'hospital_001',
+                'clinic_id'   => null,
+            ],
+
             // Super Admin - full system access
             [
                 'id'          => 'staff_super_admin',

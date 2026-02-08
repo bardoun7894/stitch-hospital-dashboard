@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
 class PatientsController extends Controller
@@ -19,9 +20,12 @@ class PatientsController extends Controller
         try {
             $query = $request->input('search');
             if ($query) {
+                // Don't cache search results as they vary per query
                 $patients = $this->firebase->searchPatients($query);
             } else {
-                $patients = $this->firebase->getPatients();
+                $patients = Cache::remember('patients_index', 30, function () {
+                    return $this->firebase->getPatients();
+                });
             }
 
             return view('patients.index', compact('patients', 'query'));

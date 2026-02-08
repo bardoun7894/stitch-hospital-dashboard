@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use App\Services\FirebaseService;
 use App\Http\Middleware\RoleMiddleware;
+use Illuminate\Support\Facades\Cache;
 
 class MedicationController extends Controller
 {
@@ -30,13 +31,16 @@ class MedicationController extends Controller
             $doctorId = $currentUser['id'] ?? null;
         }
 
-        $prescriptions = $this->firebaseService->getPrescriptions($doctorId);
-        $doctors = $this->firebaseService->getDoctors();
+        $cacheKey = 'medications_index_' . md5("{$role}_{$doctorId}");
 
-        return view('medications.index', [
-            'prescriptions' => $prescriptions,
-            'doctors' => $doctors,
-        ]);
+        $data = Cache::remember($cacheKey, 30, function () use ($doctorId) {
+            return [
+                'prescriptions' => $this->firebaseService->getPrescriptions($doctorId),
+                'doctors' => $this->firebaseService->getDoctors(),
+            ];
+        });
+
+        return view('medications.index', $data);
     }
 
     /**

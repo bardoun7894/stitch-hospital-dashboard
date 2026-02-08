@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Services\FirebaseService;
 use App\Http\Middleware\RoleMiddleware;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
 class DoctorsController extends Controller
@@ -23,13 +24,17 @@ class DoctorsController extends Controller
             $clinicId = $currentUser['clinic_id'] ?? null;
             $role = $currentUser['role'] ?? 'patient';
 
-            if ($role === 'super_admin') {
-                $doctors = $this->firebase->getDoctors();
-            } elseif ($clinicId) {
-                $doctors = $this->firebase->getDoctors($clinicId);
-            } else {
-                $doctors = $this->firebase->getDoctors();
-            }
+            $cacheKey = 'doctors_index_' . md5("{$role}_{$clinicId}");
+
+            $doctors = Cache::remember($cacheKey, 45, function () use ($role, $clinicId) {
+                if ($role === 'super_admin') {
+                    return $this->firebase->getDoctors();
+                } elseif ($clinicId) {
+                    return $this->firebase->getDoctors($clinicId);
+                } else {
+                    return $this->firebase->getDoctors();
+                }
+            });
 
             return view('doctors.index', compact('doctors'));
         } catch (\Throwable $e) {

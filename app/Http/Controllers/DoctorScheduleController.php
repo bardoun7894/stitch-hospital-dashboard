@@ -18,15 +18,8 @@ class DoctorScheduleController extends Controller
     public function show($doctorId)
     {
         try {
-            $doctors = $this->firebase->getDoctors();
-            // Find the specific doctor
-            $doctor = null;
-            foreach ($doctors as $d) {
-                if ($d['id'] === $doctorId) {
-                    $doctor = $d;
-                    break;
-                }
-            }
+            // Fetch single doctor directly instead of loading all doctors (N+1 fix)
+            $doctor = $this->firebase->getDoctorById($doctorId);
 
             if (!$doctor) {
                 return redirect()->route('doctors.index')->with('error', __('messages.doctor_not_found'));

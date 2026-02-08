@@ -1,7 +1,7 @@
 services:
     laravel.test:
         build:
-            context: './vendor/laravel/sail/runtimes/8.5'
+            context: './docker/8.5'
             dockerfile: Dockerfile
             args:
                 WWWGROUP: '${WWWGROUP}'
@@ -20,6 +20,8 @@ services:
             GOOGLE_CLOUD_PHP_FIRESTORE_TRANSPORT_PROTOCOL: '${GOOGLE_CLOUD_PHP_FIRESTORE_TRANSPORT_PROTOCOL:-rest}'
         volumes:
             - '.:/var/www/html'
+            - './docker/php/custom.ini:/etc/php/8.5/cli/conf.d/99-custom.ini'
+            - './docker/php/custom.ini:/etc/php/8.5/fpm/conf.d/99-custom.ini'
         networks:
             - sail
         depends_on:

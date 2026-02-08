@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Services\FirebaseService;
 use App\Http\Middleware\RoleMiddleware;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
 class ClinicsController extends Controller
@@ -22,17 +23,22 @@ class ClinicsController extends Controller
             $currentUser = RoleMiddleware::getCurrentUser();
             $role = $currentUser['role'] ?? 'patient';
             $hospitalId = $currentUser['hospital_id'] ?? null;
+            $clinicId = $currentUser['clinic_id'] ?? null;
 
-            if ($role === 'super_admin') {
-                $clinics = $this->firebase->getClinics();
-            } elseif ($role === 'hospital_manager' && $hospitalId) {
-                $clinics = $this->firebase->getClinicsForHospital($hospitalId);
-            } elseif ($currentUser['clinic_id'] ?? null) {
-                $clinic = $this->firebase->getClinic($currentUser['clinic_id']);
-                $clinics = $clinic ? [$clinic] : [];
-            } else {
-                $clinics = $this->firebase->getClinics();
-            }
+            $cacheKey = 'clinics_index_' . md5("{$role}_{$hospitalId}_{$clinicId}");
+
+            $clinics = Cache::remember($cacheKey, 45, function () use ($role, $hospitalId, $clinicId) {
+                if ($role === 'super_admin') {
+                    return $this->firebase->getClinics();
+                } elseif ($role === 'hospital_manager' && $hospitalId) {
+                    return $this->firebase->getClinicsForHospital($hospitalId);
+                } elseif ($clinicId) {
+                    $clinic = $this->firebase->getClinic($clinicId);
+                    return $clinic ? [$clinic] : [];
+                } else {
+                    return $this->firebase->getClinics();
+                }
+            });
 
             return view('clinics.index', compact('clinics'));
         } catch (\Throwable $e) {

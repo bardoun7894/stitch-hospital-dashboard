@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Services\FirebaseService;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
 class ReportsController extends Controller
@@ -24,8 +25,9 @@ class ReportsController extends Controller
     public function dailyStats()
     {
         try {
-            // Fetch queue data from Firebase for today
-            $data = $this->firebase->getQueueData();
+            $data = Cache::remember('reports_daily_stats', 30, function () {
+                return $this->firebase->getQueueData();
+            });
             return view('reports.daily', compact('data'));
         } catch (\Throwable $e) {
             Log::error('Daily report load error: ' . $e->getMessage());
@@ -38,20 +40,36 @@ class ReportsController extends Controller
     public function doctorLoad()
     {
         try {
-            // For multi-doctor load, we typically aggregate bookings
-            // For MVP, we'll fetch doctors and their booking counts for today
-            $doctors = $this->firebase->getDoctors();
-            $report = [];
+            // Cache the entire doctor load report to avoid N+1 queries.
+            // Previously, each doctor triggered a separate getQueueData() call.
+            // Now we batch-fetch queue data per unique clinic and reuse it.
+            $report = Cache::remember('reports_doctor_load', 30, function () {
+                $doctors = $this->firebase->getDoctors();
+                $report = [];
 
-            foreach ($doctors as $doctor) {
-                $clinicId = $doctor['clinic_id'] ?? null;
-                $stats = $clinicId ? $this->firebase->getQueueData($clinicId) : ['stats' => []];
-                $report[] = [
-                    'name' => $doctor['name'] ?? '-',
-                    'booked' => $stats['stats']['bookings_today'] ?? 0,
-                    'arrived' => $stats['stats']['arrived'] ?? 0,
-                ];
-            }
+                // Batch: collect unique clinic IDs and fetch queue data once per clinic
+                $clinicQueueData = [];
+                foreach ($doctors as $doctor) {
+                    $clinicId = $doctor['clinic_id'] ?? null;
+                    if ($clinicId && !isset($clinicQueueData[$clinicId])) {
+                        $clinicQueueData[$clinicId] = $this->firebase->getQueueData($clinicId);
+                    }
+                }
+
+                foreach ($doctors as $doctor) {
+                    $clinicId = $doctor['clinic_id'] ?? null;
+                    $stats = ($clinicId && isset($clinicQueueData[$clinicId]))
+                        ? $clinicQueueData[$clinicId]
+                        : ['stats' => []];
+                    $report[] = [
+                        'name' => $doctor['name'] ?? '-',
+                        'booked' => $stats['stats']['bookings_today'] ?? 0,
+                        'arrived' => $stats['stats']['arrived'] ?? 0,
+                    ];
+                }
+
+                return $report;
+            });
 
             return view('reports.doctor_load', compact('report'));
         } catch (\Throwable $e) {

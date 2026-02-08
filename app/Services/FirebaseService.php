@@ -13,7 +13,15 @@ class FirebaseService
 {
     protected $firestoreClient = null;
     protected $messaging = null;
+    protected ?string $credentialsPath = null;
     protected bool $allowMockFallback = false;
+
+    /**
+     * Per-request cache for Firestore collection data.
+     * Prevents duplicate fetches of the same collection within a single HTTP request.
+     * Keys are collection names (e.g., 'bookings'), values are arrays of FirestoreDocument objects.
+     */
+    protected array $requestCache = [];
 
     public function __construct()
     {
@@ -24,27 +32,21 @@ class FirebaseService
         }
 
         // Check for service account file
-        $credentialsPath = base_path(env('FIREBASE_CREDENTIALS', 'firebase.json'));
+        $credentialsPath = base_path(config('services.firebase.credentials', 'firebase.json'));
 
         if (file_exists($credentialsPath)) {
             // Initialize Firestore with custom REST client (bypasses gRPC)
             try {
                 $this->firestoreClient = new FirestoreRestClient(
                     $credentialsPath,
-                    env('FIREBASE_PROJECT_ID', 'clinicqu-1e93c')
+                    config('services.firebase.project_id', 'clinicqu-1e93c')
                 );
             } catch (\Exception $e) {
                 \Log::error('Firestore Init Error: ' . $e->getMessage());
             }
 
-            // Initialize Messaging (requires gRPC - may fail in Docker without extension)
-            try {
-                $factory = (new Factory)->withServiceAccount($credentialsPath);
-                $this->messaging = $factory->createMessaging();
-            } catch (\Exception $e) {
-                \Log::warning('Firebase Messaging Init Skipped (gRPC not available): ' . $e->getMessage());
-                // Continue without messaging - Firestore will still work
-            }
+            // Messaging initialized lazily when needed (see getMessaging())
+            $this->credentialsPath = $credentialsPath;
         }
     }
 
@@ -57,6 +59,41 @@ class FirebaseService
     public function getFirestore()
     {
         return $this->firestoreClient;
+    }
+
+    /**
+     * Get all bookings documents with per-request caching.
+     * The first call fetches from Firestore; subsequent calls within the same
+     * HTTP request return the cached result, eliminating duplicate REST API calls.
+     *
+     * @return array Array of FirestoreDocument objects from the bookings collection
+     */
+    public function getBookingsRaw(): array
+    {
+        if (isset($this->requestCache['bookings'])) {
+            return $this->requestCache['bookings'];
+        }
+
+        $firestore = $this->getFirestore();
+        if (!$firestore) {
+            return [];
+        }
+
+        $this->requestCache['bookings'] = $firestore->collection('bookings')->documents();
+        return $this->requestCache['bookings'];
+    }
+
+    protected function getMessaging()
+    {
+        if (!$this->messaging && $this->credentialsPath) {
+            try {
+                $factory = (new Factory)->withServiceAccount($this->credentialsPath);
+                $this->messaging = $factory->createMessaging();
+            } catch (\Exception $e) {
+                \Log::warning('Firebase Messaging Init Skipped: ' . $e->getMessage());
+            }
+        }
+        return $this->messaging;
     }
 
     protected function canUseMockFallback(string $context): bool
@@ -110,27 +147,44 @@ class FirebaseService
         }
 
         try {
-            $query = $this->firestoreClient->collection('bookings')
-                ->orderBy('created_at', 'DESC')
-                ->limit($limit + 1); // Fetch one extra to check if there's a next page
+            // Use per-request cached bookings to avoid duplicate Firestore calls
+            $documents = $this->getBookingsRaw();
 
-            // Apply filters
-            if ($status) {
-                $query = $query->where('status', '=', $status);
+            // Apply filters client-side (same as FirestoreCollection does internally)
+            $filtered = [];
+            foreach ($documents as $document) {
+                if (!$document->exists()) continue;
+                $data = $document->data();
+
+                if ($status && ($data['status'] ?? null) != $status) continue;
+                if ($clinicId && ($data['clinic_id'] ?? null) != $clinicId) continue;
+
+                $filtered[] = $document;
             }
-            if ($clinicId) {
-                $query = $query->where('clinic_id', '=', $clinicId);
-            }
-            
-            // Pagination cursor
+
+            // Sort by created_at DESC
+            usort($filtered, function ($a, $b) {
+                $aVal = $a->data()['created_at'] ?? null;
+                $bVal = $b->data()['created_at'] ?? null;
+                return $bVal <=> $aVal;
+            });
+
+            // Handle pagination cursor
             if ($startAfter) {
-                $cursorDoc = $this->firestoreClient->collection('bookings')->document($startAfter)->snapshot();
-                if ($cursorDoc->exists()) {
-                    $query = $query->startAfter($cursorDoc);
+                $found = false;
+                $afterCursor = [];
+                foreach ($filtered as $doc) {
+                    if ($found) {
+                        $afterCursor[] = $doc;
+                    } elseif ($doc->id() === $startAfter) {
+                        $found = true;
+                    }
                 }
+                $filtered = $found ? $afterCursor : $filtered;
             }
 
-            $documents = $query->documents();
+            // Apply limit (+1 to detect next page)
+            $documents = array_slice($filtered, 0, $limit + 1);
 
             $bookings = [];
             $count = 0;
@@ -390,9 +444,9 @@ class FirebaseService
                 $snapshot = $firestore->collection('clinics')->documents();
                 $today = date('Y-m-d');
 
-                // Pre-fetch today's bookings grouped by clinic
+                // Pre-fetch today's bookings grouped by clinic (uses per-request cache)
                 $bookingsByClinic = [];
-                $allBookings = $firestore->collection('bookings')->documents();
+                $allBookings = $this->getBookingsRaw();
                 foreach ($allBookings as $bDoc) {
                     if (!$bDoc->exists()) continue;
                     $bData = $bDoc->data();
@@ -680,7 +734,8 @@ class FirebaseService
                 $alerts = [];
                 $today = date('Y-m-d');
 
-                $allBookings = $firestore->collection('bookings')->documents();
+                // Use per-request cached bookings to avoid duplicate Firestore calls
+                $allBookings = $this->getBookingsRaw();
                 $pendingCount = 0;
                 $awaitingPaymentCount = 0;
 
@@ -903,9 +958,8 @@ class FirebaseService
             $today = date('Y-m-d');
             $yesterday = date('Y-m-d', strtotime('-1 day'));
 
-            $allBookings = $firestore
-                ->collection('bookings')
-                ->documents();
+            // Use per-request cached bookings to avoid duplicate Firestore calls
+            $allBookings = $this->getBookingsRaw();
 
             $total = 0;
             $waiting = 0;
@@ -2023,7 +2077,8 @@ class FirebaseService
             }
 
             // Send push notification via FCM
-            if (!$this->messaging) {
+            $messaging = $this->getMessaging();
+            if (!$messaging) {
                 \Log::warning("FCM: Messaging not initialized, notification stored in Firestore only");
                 return $userId ? true : false;
             }
@@ -2033,7 +2088,7 @@ class FirebaseService
                 ->withNotification(Notification::create($title, $body))
                 ->withData($data);
 
-            $this->messaging->send($message);
+            $messaging->send($message);
 
             \Log::info("FCM Notification Sent: {$title}", [
                 'token' => $fcmToken,

@@ -15,7 +15,7 @@ class VerifyFirebaseToken
 
     public function __construct()
     {
-        $credentialsPath = base_path(env('FIREBASE_CREDENTIALS', 'firebase.json'));
+        $credentialsPath = base_path(config('services.firebase.credentials', 'firebase.json'));
 
         if (file_exists($credentialsPath)) {
             try {

@@ -16,10 +16,28 @@ class FirestoreRestClient
     {
         $this->projectId = $projectId;
         $this->credentials = json_decode(file_get_contents($credentialsPath), true);
-        $this->accessToken = $this->getAccessToken();
+        $this->accessToken = $this->getCachedAccessToken();
     }
 
-    protected function getAccessToken()
+    protected function getCachedAccessToken()
+    {
+        $cacheKey = 'firestore_access_token';
+        $cached = cache($cacheKey);
+
+        if ($cached) {
+            return $cached;
+        }
+
+        $token = $this->fetchAccessToken();
+
+        if ($token) {
+            cache([$cacheKey => $token], now()->addMinutes(50));
+        }
+
+        return $token;
+    }
+
+    protected function fetchAccessToken()
     {
         $jwt = $this->createJWT();
 
@@ -32,7 +50,6 @@ class FirestoreRestClient
         ]));
 
         $response = curl_exec($ch);
-        curl_close($ch);
 
         $data = json_decode($response, true);
         return $data['access_token'] ?? null;
@@ -239,6 +256,102 @@ class FirestoreRestClient
         } while ($pageToken);
 
         return $allDocuments;
+    }
+
+    /**
+     * Fetch multiple collections in parallel using curl_multi.
+     * Reduces latency by issuing concurrent HTTP requests instead of sequential ones.
+     *
+     * @param array $collections List of collection names to fetch
+     * @return array Associative array keyed by collection name, each containing an array of raw documents
+     */
+    public function batchListCollections(array $collections): array
+    {
+        $results = [];
+        $handles = [];
+        $mh = curl_multi_init();
+
+        foreach ($collections as $collection) {
+            $url = "https://firestore.googleapis.com/v1/projects/{$this->projectId}/databases/(default)/documents/{$collection}?pageSize=100";
+
+            $ch = curl_init($url);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                'Authorization: Bearer ' . $this->accessToken
+            ]);
+
+            $handles[$collection] = $ch;
+            curl_multi_add_handle($mh, $ch);
+        }
+
+        // Execute all requests in parallel
+        $running = null;
+        do {
+            curl_multi_exec($mh, $running);
+            if ($running > 0) {
+                curl_multi_select($mh);
+            }
+        } while ($running > 0);
+
+        // Collect results
+        foreach ($handles as $collection => $ch) {
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $response = curl_multi_getcontent($ch);
+            curl_multi_remove_handle($mh, $ch);
+            curl_close($ch);
+
+            if ($httpCode === 200) {
+                $data = json_decode($response, true);
+                $docs = $data['documents'] ?? [];
+                $pageToken = $data['nextPageToken'] ?? null;
+
+                // Handle pagination for collections with more than 100 docs
+                while ($pageToken) {
+                    $docs = array_merge($docs, $this->listPage($collection, $pageToken, $pageToken));
+                }
+
+                $results[$collection] = $docs;
+            } else {
+                $results[$collection] = [];
+            }
+        }
+
+        curl_multi_close($mh);
+
+        return $results;
+    }
+
+    /**
+     * Fetch a single page of a collection list and return documents.
+     * Updates $nextPageToken by reference for continued pagination.
+     *
+     * @param string $collection Collection name
+     * @param string $pageToken Current page token
+     * @param string|null &$nextPageToken Will be set to next page token or null
+     * @return array Raw documents from this page
+     */
+    protected function listPage(string $collection, string $pageToken, ?string &$nextPageToken): array
+    {
+        $url = "https://firestore.googleapis.com/v1/projects/{$this->projectId}/databases/(default)/documents/{$collection}?pageSize=100&pageToken=" . urlencode($pageToken);
+
+        $ch = curl_init($url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, [
+            'Authorization: Bearer ' . $this->accessToken
+        ]);
+
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+
+        if ($httpCode !== 200) {
+            $nextPageToken = null;
+            return [];
+        }
+
+        $data = json_decode($response, true);
+        $nextPageToken = $data['nextPageToken'] ?? null;
+        return $data['documents'] ?? [];
     }
 }
 

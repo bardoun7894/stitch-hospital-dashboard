@@ -42,6 +42,8 @@ return [
     ],
 
     'firebase' => [
+        'credentials' => env('FIREBASE_CREDENTIALS', 'firebase.json'),
+        'project_id' => env('FIREBASE_PROJECT_ID', 'clinicqu-1e93c'),
         'allow_mock_fallback' => env('FIREBASE_ALLOW_MOCK_FALLBACK', false),
     ],
 

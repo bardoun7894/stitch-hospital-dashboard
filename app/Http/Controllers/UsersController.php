@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Services\FirebaseService;
 use App\Http\Middleware\RoleMiddleware;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Session;
 
 class UsersController extends Controller
@@ -32,11 +33,17 @@ class UsersController extends Controller
         }
         // super_admin sees all (no filter)
 
-        $users = $this->firebaseService->getStaffUsers($clinicId, $hospitalId);
-        $clinics = $this->firebaseService->getClinics();
-        $hospitals = $this->firebaseService->getHospitals();
+        $cacheKey = 'users_index_' . md5("{$role}_{$clinicId}_{$hospitalId}");
 
-        return view('users.index', compact('users', 'clinics', 'hospitals'));
+        $data = Cache::remember($cacheKey, 45, function () use ($clinicId, $hospitalId) {
+            return [
+                'users' => $this->firebaseService->getStaffUsers($clinicId, $hospitalId),
+                'clinics' => $this->firebaseService->getClinics(),
+                'hospitals' => $this->firebaseService->getHospitals(),
+            ];
+        });
+
+        return view('users.index', $data);
     }
 
     public function create()

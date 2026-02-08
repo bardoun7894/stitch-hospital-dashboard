@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Services\FirebaseService;
 use App\Http\Middleware\RoleMiddleware;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
 class HospitalController extends Controller
@@ -23,27 +24,33 @@ class HospitalController extends Controller
             $role = $currentUser['role'] ?? 'patient';
             $hospitalId = $currentUser['hospital_id'] ?? null;
 
-            if ($role === 'super_admin') {
-                $hospitals = $this->firebaseService->getHospitals();
-            } elseif ($hospitalId) {
-                $hospital = $this->firebaseService->getHospitalById($hospitalId);
-                $hospitals = $hospital ? [$hospital] : [];
-            } else {
-                $hospitals = [];
-            }
+            $cacheKey = 'hospital_index_' . md5("{$role}_{$hospitalId}");
 
-            // Get clinic counts per hospital
-            $allClinics = $this->firebaseService->getClinics();
-            $clinicsByHospital = [];
-            foreach ($allClinics as $clinic) {
-                $hid = $clinic['hospital_id'] ?? 'standalone';
-                $clinicsByHospital[$hid] = ($clinicsByHospital[$hid] ?? 0) + 1;
-            }
+            $hospitals = Cache::remember($cacheKey, 60, function () use ($role, $hospitalId) {
+                if ($role === 'super_admin') {
+                    $hospitals = $this->firebaseService->getHospitals();
+                } elseif ($hospitalId) {
+                    $hospital = $this->firebaseService->getHospitalById($hospitalId);
+                    $hospitals = $hospital ? [$hospital] : [];
+                } else {
+                    $hospitals = [];
+                }
 
-            foreach ($hospitals as &$h) {
-                $h['clinic_count'] = $clinicsByHospital[$h['id']] ?? 0;
-            }
-            unset($h);
+                // Get clinic counts per hospital
+                $allClinics = $this->firebaseService->getClinics();
+                $clinicsByHospital = [];
+                foreach ($allClinics as $clinic) {
+                    $hid = $clinic['hospital_id'] ?? 'standalone';
+                    $clinicsByHospital[$hid] = ($clinicsByHospital[$hid] ?? 0) + 1;
+                }
+
+                foreach ($hospitals as &$h) {
+                    $h['clinic_count'] = $clinicsByHospital[$h['id']] ?? 0;
+                }
+                unset($h);
+
+                return $hospitals;
+            });
 
             return view('hospital.index', compact('hospitals'));
         } catch (\Throwable $e) {

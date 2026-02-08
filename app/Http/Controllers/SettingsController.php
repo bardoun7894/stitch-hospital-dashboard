@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Http\Middleware\RoleMiddleware;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
 class SettingsController extends Controller
@@ -20,9 +21,18 @@ class SettingsController extends Controller
         try {
             $currentUser = RoleMiddleware::getCurrentUser();
             $clinicId = $currentUser['clinic_id'] ?? null;
-            $settings = $this->firebase->getSettings();
 
-            $clinic = $clinicId ? $this->firebase->getClinic($clinicId) : null;
+            $cacheKey = 'settings_index_' . md5($clinicId ?? 'none');
+
+            $cached = Cache::remember($cacheKey, 60, function () use ($clinicId) {
+                return [
+                    'settings' => $this->firebase->getSettings(),
+                    'clinic' => $clinicId ? $this->firebase->getClinic($clinicId) : null,
+                ];
+            });
+
+            $settings = $cached['settings'];
+            $clinic = $cached['clinic'];
 
             if (!$clinic) {
                 $clinic = [
@@ -96,6 +106,8 @@ class SettingsController extends Controller
             $success = $this->firebase->updateClinic($clinicId, $updateData);
 
             if ($success) {
+                // Invalidate settings cache after update
+                Cache::forget('settings_index_' . md5($clinicId));
                 return back()->with('success', __('messages.settings_updated'));
             }
 

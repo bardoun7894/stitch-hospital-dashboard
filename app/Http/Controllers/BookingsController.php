@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use App\Services\FirebaseService;
 use App\Http\Middleware\RoleMiddleware;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
 class BookingsController extends Controller
@@ -88,17 +89,24 @@ class BookingsController extends Controller
         $role = $currentUser['role'] ?? 'patient';
         $clinicId = $request->query('clinic_id') ?: ($currentUser['clinic_id'] ?? null);
 
-        // Build clinic list for selector dropdown
-        if (in_array($role, ['super_admin', 'hospital_manager'])) {
-            $clinics = $this->firebaseService->getClinics();
-        } elseif ($clinicId) {
-            $clinic = $this->firebaseService->getClinic($clinicId);
-            $clinics = $clinic ? [$clinic] : [];
-        } else {
-            $clinics = $this->firebaseService->getClinics();
-        }
+        // Cache the clinic list separately (changes infrequently)
+        $clinicsCacheKey = 'bookings_clinics_' . md5("{$role}_{$clinicId}");
+        $clinics = Cache::remember($clinicsCacheKey, 60, function () use ($role, $clinicId) {
+            if (in_array($role, ['super_admin', 'hospital_manager'])) {
+                return $this->firebaseService->getClinics();
+            } elseif ($clinicId) {
+                $clinic = $this->firebaseService->getClinic($clinicId);
+                return $clinic ? [$clinic] : [];
+            } else {
+                return $this->firebaseService->getClinics();
+            }
+        });
 
-        $data = $this->firebaseService->getQueueData($clinicId);
+        // Queue data is time-sensitive, use a short cache TTL
+        $dataCacheKey = 'bookings_queue_data_' . md5($clinicId ?? 'all');
+        $data = Cache::remember($dataCacheKey, 15, function () use ($clinicId) {
+            return $this->firebaseService->getQueueData($clinicId);
+        });
 
         return view('bookings.index', [
             'data' => $data,
