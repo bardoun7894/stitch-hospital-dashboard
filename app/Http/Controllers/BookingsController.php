@@ -91,7 +91,7 @@ class BookingsController extends Controller
 
         // Cache the clinic list separately (changes infrequently)
         $clinicsCacheKey = 'bookings_clinics_' . md5("{$role}_{$clinicId}");
-        $clinics = Cache::remember($clinicsCacheKey, 60, function () use ($role, $clinicId) {
+        $clinics = Cache::remember($clinicsCacheKey, 300, function () use ($role, $clinicId) {
             if (in_array($role, ['super_admin', 'hospital_manager'])) {
                 return $this->firebaseService->getClinics();
             } elseif ($clinicId) {
@@ -104,7 +104,7 @@ class BookingsController extends Controller
 
         // Queue data is time-sensitive, use a short cache TTL
         $dataCacheKey = 'bookings_queue_data_' . md5($clinicId ?? 'all');
-        $data = Cache::remember($dataCacheKey, 15, function () use ($clinicId) {
+        $data = Cache::remember($dataCacheKey, 60, function () use ($clinicId) {
             return $this->firebaseService->getQueueData($clinicId);
         });
 
@@ -120,7 +120,9 @@ class BookingsController extends Controller
      */
     public function pendingBookings(): JsonResponse
     {
-        $pending = $this->firebaseService->getPendingBookings();
+        $pending = Cache::remember('pending_bookings', 30, function () {
+            return $this->firebaseService->getPendingBookings();
+        });
         return response()->json([
             'count' => count($pending),
             'bookings' => $pending,

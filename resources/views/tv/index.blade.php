@@ -54,10 +54,10 @@
         }
     </style>
     <script>
-        // Auto-refresh every 15 seconds to fetch latest queue state
+        // Auto-refresh every 30 seconds to fetch latest queue state
         setInterval(() => {
             window.location.reload();
-        }, 15000);
+        }, 30000);
         
         // Optional: Play sound if recalled recently (requires layout to pass data to JS)
         // For MVP, simple reload is enough.

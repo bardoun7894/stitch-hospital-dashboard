@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Services\FirebaseService;
+use Illuminate\Support\Facades\Cache;
 
 class TvViewController extends Controller
 {
@@ -16,8 +17,9 @@ class TvViewController extends Controller
 
     public function index()
     {
-        // Re-use the same queue data for consistency
-        $data = $this->firebaseService->getQueueData();
+        $data = Cache::remember('tv_queue_data', 30, function () {
+            return $this->firebaseService->getQueueData();
+        });
         return view('tv.index', ['data' => $data]);
     }
 }

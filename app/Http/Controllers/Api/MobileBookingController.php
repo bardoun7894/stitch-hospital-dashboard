@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Services\FirebaseService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
 class MobileBookingController extends Controller
@@ -34,7 +35,9 @@ class MobileBookingController extends Controller
         $locale = $request->input('locale', 'ar');
 
         try {
-            $bookings = $this->firebaseService->getUserBookings($userId, $locale);
+            $bookings = Cache::remember("mobile_user_bookings_{$userId}_{$locale}", 30, function () use ($userId, $locale) {
+                return $this->firebaseService->getUserBookings($userId, $locale);
+            });
 
             return response()->json([
                 'success' => true,
@@ -67,7 +70,9 @@ class MobileBookingController extends Controller
         $locale = $request->input('locale', 'ar');
 
         try {
-            $booking = $this->firebaseService->getBookingDetails($bookingId, $locale);
+            $booking = Cache::remember("mobile_booking_{$bookingId}_{$locale}", 60, function () use ($bookingId, $locale) {
+                return $this->firebaseService->getBookingDetails($bookingId, $locale);
+            });
 
             // Verify booking belongs to user
             if ($booking['patient_id'] !== $userId) {

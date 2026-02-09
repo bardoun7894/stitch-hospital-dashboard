@@ -598,11 +598,11 @@ async function reinsertPatient(bookingId) {
     }
 }
 
-// Auto-refresh every 30 seconds
+// Auto-refresh every 2 minutes
 setInterval(() => {
     if (!document.querySelector('[role="dialog"]') && !document.querySelector('.fixed.top-4')) {
         window.location.reload();
     }
-}, 30000);
+}, 120000);
 </script>
 @endsection

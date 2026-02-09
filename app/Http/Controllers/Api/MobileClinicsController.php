@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Services\FirebaseService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Cache;
 
 class MobileClinicsController extends Controller
 {
@@ -25,16 +26,16 @@ class MobileClinicsController extends Controller
         $locale = $request->input('locale', 'ar');
 
         try {
-            $clinics = $this->firebaseService->getClinicsFull();
-
-            // Apply localization
-            $localizedClinics = array_map(function ($clinic) use ($locale) {
-                return $this->localizeClinic($clinic, $locale);
-            }, $clinics);
+            $clinics = Cache::remember("mobile_clinics_{$locale}", 300, function () use ($locale) {
+                $clinics = $this->firebaseService->getClinicsFull();
+                return array_map(function ($clinic) use ($locale) {
+                    return $this->localizeClinic($clinic, $locale);
+                }, $clinics);
+            });
 
             return response()->json([
                 'success' => true,
-                'data' => $localizedClinics
+                'data' => $clinics
             ]);
         } catch (\Exception $e) {
             \Log::error('Get clinics error: ' . $e->getMessage());
@@ -54,12 +55,14 @@ class MobileClinicsController extends Controller
         $locale = $request->input('locale', 'ar');
 
         try {
-            $clinic = $this->firebaseService->getClinicById($clinicId);
-            $localizedClinic = $this->localizeClinic($clinic, $locale);
+            $clinic = Cache::remember("mobile_clinic_{$clinicId}_{$locale}", 300, function () use ($clinicId, $locale) {
+                $clinic = $this->firebaseService->getClinicById($clinicId);
+                return $this->localizeClinic($clinic, $locale);
+            });
 
             return response()->json([
                 'success' => true,
-                'data' => $localizedClinic
+                'data' => $clinic
             ]);
         } catch (\Exception $e) {
             \Log::error('Get clinic error: ' . $e->getMessage());
@@ -79,16 +82,16 @@ class MobileClinicsController extends Controller
         $locale = $request->input('locale', 'ar');
 
         try {
-            $doctors = $this->firebaseService->getDoctors($clinicId);
-
-            // Apply localization
-            $localizedDoctors = array_map(function ($doctor) use ($locale) {
-                return $this->localizeDoctor($doctor, $locale);
-            }, $doctors);
+            $doctors = Cache::remember("mobile_clinic_doctors_{$clinicId}_{$locale}", 300, function () use ($clinicId, $locale) {
+                $doctors = $this->firebaseService->getDoctors($clinicId);
+                return array_map(function ($doctor) use ($locale) {
+                    return $this->localizeDoctor($doctor, $locale);
+                }, $doctors);
+            });
 
             return response()->json([
                 'success' => true,
-                'data' => $localizedDoctors
+                'data' => $doctors
             ]);
         } catch (\Exception $e) {
             \Log::error('Get doctors error: ' . $e->getMessage());
@@ -110,25 +113,27 @@ class MobileClinicsController extends Controller
         ]);
 
         try {
-            $slots = $this->firebaseService->getAvailableSlots(
-                $clinicId,
-                $doctorId,
-                $validated['date']
-            );
-
-            // Include working-hours session info so the mobile app can display schedule
-            $hoursCheck = $this->firebaseService->isWithinWorkingHours($clinicId, $doctorId);
-
-            return response()->json([
-                'success' => true,
-                'data' => [
+            $cacheKey = "mobile_slots_{$clinicId}_{$doctorId}_{$validated['date']}";
+            $data = Cache::remember($cacheKey, 60, function () use ($clinicId, $doctorId, $validated) {
+                $slots = $this->firebaseService->getAvailableSlots(
+                    $clinicId,
+                    $doctorId,
+                    $validated['date']
+                );
+                $hoursCheck = $this->firebaseService->isWithinWorkingHours($clinicId, $doctorId);
+                return [
                     'slots' => $slots,
                     'working_hours' => [
                         'within_hours' => $hoursCheck['within_hours'],
                         'sessions' => $hoursCheck['sessions'],
                         'message' => $hoursCheck['message'],
                     ],
-                ],
+                ];
+            });
+
+            return response()->json([
+                'success' => true,
+                'data' => $data,
             ]);
         } catch (\Exception $e) {
             \Log::error('Get slots error: ' . $e->getMessage());
@@ -170,24 +175,18 @@ class MobileClinicsController extends Controller
         $locale = $request->input('locale', 'ar');
 
         try {
-            $clinics = $this->firebaseService->getClinicsBySpecialty($specialty);
-            $doctors = $this->firebaseService->getDoctorsBySpecialty($specialty);
-
-            // Apply localization
-            $localizedClinics = array_map(function ($clinic) use ($locale) {
-                return $this->localizeClinic($clinic, $locale);
-            }, $clinics);
-
-            $localizedDoctors = array_map(function ($doctor) use ($locale) {
-                return $this->localizeDoctor($doctor, $locale);
-            }, $doctors);
+            $data = Cache::remember("mobile_specialty_{$specialty}_{$locale}", 300, function () use ($specialty, $locale) {
+                $clinics = $this->firebaseService->getClinicsBySpecialty($specialty);
+                $doctors = $this->firebaseService->getDoctorsBySpecialty($specialty);
+                return [
+                    'clinics' => array_map(fn($c) => $this->localizeClinic($c, $locale), $clinics),
+                    'doctors' => array_map(fn($d) => $this->localizeDoctor($d, $locale), $doctors),
+                ];
+            });
 
             return response()->json([
                 'success' => true,
-                'data' => [
-                    'clinics' => $localizedClinics,
-                    'doctors' => $localizedDoctors,
-                ]
+                'data' => $data,
             ]);
         } catch (\Exception $e) {
             \Log::error('Get by specialty error: ' . $e->getMessage());
@@ -208,23 +207,19 @@ class MobileClinicsController extends Controller
         $locale = $request->input('locale', 'ar');
 
         try {
-            $results = $this->firebaseService->searchAll($query);
-
-            // Apply localization
-            $results['clinics'] = array_map(function ($clinic) use ($locale) {
-                return $this->localizeClinic($clinic, $locale);
-            }, $results['clinics']);
-
-            $results['doctors'] = array_map(function ($doctor) use ($locale) {
-                return $this->localizeDoctor($doctor, $locale);
-            }, $results['doctors']);
-
-            $results['hospitals'] = array_map(function ($hospital) use ($locale) {
-                if ($locale === 'en' && isset($hospital['name_en'])) {
-                    $hospital['name'] = $hospital['name_en'];
-                }
-                return $hospital;
-            }, $results['hospitals']);
+            $cacheKey = 'mobile_search_' . md5("{$query}_{$locale}");
+            $results = Cache::remember($cacheKey, 120, function () use ($query, $locale) {
+                $results = $this->firebaseService->searchAll($query);
+                $results['clinics'] = array_map(fn($c) => $this->localizeClinic($c, $locale), $results['clinics']);
+                $results['doctors'] = array_map(fn($d) => $this->localizeDoctor($d, $locale), $results['doctors']);
+                $results['hospitals'] = array_map(function ($hospital) use ($locale) {
+                    if ($locale === 'en' && isset($hospital['name_en'])) {
+                        $hospital['name'] = $hospital['name_en'];
+                    }
+                    return $hospital;
+                }, $results['hospitals']);
+                return $results;
+            });
 
             return response()->json([
                 'success' => true,

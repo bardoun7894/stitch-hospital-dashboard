@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Services\FirebaseService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
 class MobileQueueController extends Controller
@@ -30,11 +31,14 @@ class MobileQueueController extends Controller
         ]);
 
         try {
-            $queueState = $this->firebaseService->getQueueState(
-                $validated['clinic_id'],
-                $validated['doctor_id'],
-                $validated['date']
-            );
+            $cacheKey = "mobile_queue_{$validated['clinic_id']}_{$validated['doctor_id']}_{$validated['date']}";
+            $queueState = Cache::remember($cacheKey, 30, function () use ($validated) {
+                return $this->firebaseService->getQueueState(
+                    $validated['clinic_id'],
+                    $validated['doctor_id'],
+                    $validated['date']
+                );
+            });
 
             return response()->json([
                 'success' => true,

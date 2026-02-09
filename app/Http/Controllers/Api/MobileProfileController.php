@@ -140,7 +140,15 @@ class MobileProfileController extends Controller
         }
 
         try {
-            $profile = $this->firebaseService->getUserProfile($userId);
+            try {
+                $profile = $this->firebaseService->getUserProfile($userId);
+            } catch (\Throwable $e) {
+                // Profile doesn't exist yet - return empty family members
+                return response()->json([
+                    'success' => true,
+                    'data' => []
+                ]);
+            }
             $familyMembers = $profile['family_members'] ?? [];
 
             return response()->json([

@@ -6,6 +6,7 @@ use App\Services\FirebaseService;
 use App\Http\Middleware\RoleMiddleware;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Cache;
 
 /**
  * QueueController - Manages clinic queue operations for reception.
@@ -37,7 +38,10 @@ class QueueController extends Controller
             $currentUser = RoleMiddleware::getCurrentUser();
             $clinicId = $request->query('clinic_id') ?: ($currentUser['clinic_id'] ?? null);
 
-            $queueData = $this->firebaseService->getQueueData($clinicId);
+            $cacheKey = 'queue_data_' . ($clinicId ?? 'all');
+            $queueData = Cache::remember($cacheKey, 60, function () use ($clinicId) {
+                return $this->firebaseService->getQueueData($clinicId);
+            });
 
             return response()->json([
                 'success' => true,
@@ -232,42 +236,45 @@ class QueueController extends Controller
         ]);
 
         try {
-            $firestore = $this->firebaseService->getFirestore();
             $dateKey = date('Y-m-d', strtotime($validated['date']));
-            
-            $queueRef = $firestore->collection('clinics')
-                ->document($validated['clinic_id'])
-                ->collection('doctors')
-                ->document($validated['doctor_id'])
-                ->collection('dates')
-                ->document($dateKey);
-            
-            $queueDoc = $queueRef->snapshot();
-            
-            if (!$queueDoc->exists()) {
-                return response()->json([
-                    'success' => true,
-                    'data' => [
+            $cacheKey = "queue_stats_{$validated['clinic_id']}_{$validated['doctor_id']}_{$dateKey}";
+
+            $statsData = Cache::remember($cacheKey, 60, function () use ($validated, $dateKey) {
+                $firestore = $this->firebaseService->getFirestore();
+
+                $queueRef = $firestore->collection('clinics')
+                    ->document($validated['clinic_id'])
+                    ->collection('doctors')
+                    ->document($validated['doctor_id'])
+                    ->collection('dates')
+                    ->document($dateKey);
+
+                $queueDoc = $queueRef->snapshot();
+
+                if (!$queueDoc->exists()) {
+                    return [
                         'now_serving' => 0,
                         'last_issued' => 0,
                         'remaining' => 0,
                         'is_paused' => false,
-                    ],
-                ]);
-            }
-            
-            $data = $queueDoc->data();
-            $nowServing = $data['now_serving'] ?? 0;
-            $lastIssued = $data['last_issued'] ?? 0;
-            
-            return response()->json([
-                'success' => true,
-                'data' => [
+                    ];
+                }
+
+                $data = $queueDoc->data();
+                $nowServing = $data['now_serving'] ?? 0;
+                $lastIssued = $data['last_issued'] ?? 0;
+
+                return [
                     'now_serving' => $nowServing,
                     'last_issued' => $lastIssued,
                     'remaining' => max(0, $lastIssued - $nowServing),
                     'is_paused' => $data['is_paused'] ?? false,
-                ],
+                ];
+            });
+
+            return response()->json([
+                'success' => true,
+                'data' => $statsData,
             ]);
         } catch (\Exception $e) {
             return response()->json([

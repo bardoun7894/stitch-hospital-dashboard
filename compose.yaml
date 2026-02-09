@@ -45,6 +45,7 @@ services:
         volumes:
             - 'sail-mysql:/var/lib/mysql'
             - './vendor/laravel/sail/database/mysql/create-testing-database.sh:/docker-entrypoint-initdb.d/10-create-testing-database.sh'
+            - './docker/mysql/custom.cnf:/etc/mysql/conf.d/custom.cnf'
         networks:
             - sail
         healthcheck:
@@ -59,6 +60,8 @@ services:
         image: 'redis:alpine'
         ports:
             - '${FORWARD_REDIS_PORT:-6379}:6379'
+        sysctls:
+            - net.core.somaxconn=511
         volumes:
             - 'sail-redis:/data'
         networks:

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Services\FirebaseService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Cache;
 
 class MobileHospitalsController extends Controller
 {
@@ -23,7 +24,9 @@ class MobileHospitalsController extends Controller
     public function index(Request $request): JsonResponse
     {
         try {
-            $hospitals = $this->firebaseService->getHospitals();
+            $hospitals = Cache::remember('mobile_hospitals', 300, function () {
+                return $this->firebaseService->getHospitals();
+            });
 
             return response()->json([
                 'success' => true,
@@ -45,7 +48,9 @@ class MobileHospitalsController extends Controller
     public function show(string $hospitalId): JsonResponse
     {
         try {
-            $hospital = $this->firebaseService->getHospitalById($hospitalId);
+            $hospital = Cache::remember("mobile_hospital_{$hospitalId}", 300, function () use ($hospitalId) {
+                return $this->firebaseService->getHospitalById($hospitalId);
+            });
 
             if (!$hospital) {
                 return response()->json([
@@ -74,7 +79,9 @@ class MobileHospitalsController extends Controller
     public function getClinics(string $hospitalId): JsonResponse
     {
         try {
-            $hospital = $this->firebaseService->getHospitalById($hospitalId);
+            $hospital = Cache::remember("mobile_hospital_{$hospitalId}", 300, function () use ($hospitalId) {
+                return $this->firebaseService->getHospitalById($hospitalId);
+            });
 
             if (!$hospital) {
                 return response()->json([
@@ -83,7 +90,9 @@ class MobileHospitalsController extends Controller
                 ], 404);
             }
 
-            $clinics = $this->firebaseService->getClinicsForHospital($hospitalId);
+            $clinics = Cache::remember("mobile_hospital_clinics_{$hospitalId}", 300, function () use ($hospitalId) {
+                return $this->firebaseService->getClinicsForHospital($hospitalId);
+            });
 
             return response()->json([
                 'success' => true,

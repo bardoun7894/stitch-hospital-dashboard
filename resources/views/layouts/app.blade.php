@@ -73,7 +73,7 @@
 
                 startPolling() {
                     this.fetchPending();
-                    this.pollInterval = setInterval(() => this.fetchPending(), 15000);
+                    this.pollInterval = setInterval(() => this.fetchPending(), 60000);
                 },
 
                 async fetchPending() {

@@ -54,7 +54,7 @@ class DashboardController extends Controller
                 $stats = $this->firebase->getDashboardStats();
                 $alerts = $this->firebase->getAlerts();
 
-                Cache::put($cacheKey, compact('stats', 'bookings', 'clinics', 'alerts'), 60);
+                Cache::put($cacheKey, compact('stats', 'bookings', 'clinics', 'alerts'), 300);
             }
 
             return view('dashboard.index', compact('stats', 'bookings', 'clinics', 'alerts'));

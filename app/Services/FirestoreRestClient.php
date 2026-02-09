@@ -330,6 +330,103 @@ class FirestoreRestClient
      * @param string|null &$nextPageToken Will be set to next page token or null
      * @return array Raw documents from this page
      */
+    /**
+     * Execute a Firestore StructuredQuery via the REST runQuery endpoint.
+     * This performs server-side filtering, avoiding downloading entire collections.
+     *
+     * @param string $collection Collection name
+     * @param array $where Array of ['field' => ..., 'operator' => ..., 'value' => ...]
+     * @param array|null $orderBy ['field' => ..., 'direction' => 'ASC'|'DESC']
+     * @param int|null $limit Maximum documents to return
+     * @param int|null $offset Number of documents to skip
+     * @return array Raw document results
+     */
+    public function runQuery(string $collection, array $where = [], ?array $orderBy = null, ?int $limit = null, ?int $offset = null): array
+    {
+        $url = "https://firestore.googleapis.com/v1/projects/{$this->projectId}/databases/(default)/documents:runQuery";
+
+        $structuredQuery = [
+            'from' => [['collectionId' => $collection]],
+        ];
+
+        // Build composite filter from where clauses
+        if (!empty($where)) {
+            $filters = [];
+            foreach ($where as $filter) {
+                $opMap = [
+                    '=' => 'EQUAL', '==' => 'EQUAL',
+                    '!=' => 'NOT_EQUAL',
+                    '<' => 'LESS_THAN', '<=' => 'LESS_THAN_OR_EQUAL',
+                    '>' => 'GREATER_THAN', '>=' => 'GREATER_THAN_OR_EQUAL',
+                ];
+                $firestoreOp = $opMap[$filter['operator']] ?? 'EQUAL';
+                $filters[] = [
+                    'fieldFilter' => [
+                        'field' => ['fieldPath' => $filter['field']],
+                        'op' => $firestoreOp,
+                        'value' => $this->encodeValue($filter['value']),
+                    ],
+                ];
+            }
+
+            if (count($filters) === 1) {
+                $structuredQuery['where'] = $filters[0];
+            } else {
+                $structuredQuery['where'] = [
+                    'compositeFilter' => [
+                        'op' => 'AND',
+                        'filters' => $filters,
+                    ],
+                ];
+            }
+        }
+
+        if ($orderBy) {
+            $structuredQuery['orderBy'] = [[
+                'field' => ['fieldPath' => $orderBy['field']],
+                'direction' => strtoupper($orderBy['direction'] ?? 'ASC') === 'DESC' ? 'DESCENDING' : 'ASCENDING',
+            ]];
+        }
+
+        if ($limit !== null) {
+            $structuredQuery['limit'] = $limit;
+        }
+
+        if ($offset !== null) {
+            $structuredQuery['offset'] = $offset;
+        }
+
+        $body = json_encode(['structuredQuery' => $structuredQuery]);
+
+        $ch = curl_init($url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, $body);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, [
+            'Authorization: Bearer ' . $this->accessToken,
+            'Content-Type: application/json',
+        ]);
+
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+
+        if ($httpCode !== 200) {
+            \Log::warning("Firestore runQuery failed ($httpCode) for {$collection}: " . substr($response, 0, 500));
+            return [];
+        }
+
+        $results = json_decode($response, true);
+        $documents = [];
+        foreach ($results as $result) {
+            if (isset($result['document'])) {
+                $documents[] = $result['document'];
+            }
+        }
+
+        return $documents;
+    }
+
     protected function listPage(string $collection, string $pageToken, ?string &$nextPageToken): array
     {
         $url = "https://firestore.googleapis.com/v1/projects/{$this->projectId}/databases/(default)/documents/{$collection}?pageSize=100&pageToken=" . urlencode($pageToken);
@@ -391,6 +488,35 @@ class FirestoreCollection
 
     public function documents()
     {
+        // Try server-side filtering if we have where filters on a top-level collection
+        if (!empty($this->whereFilters) && !str_contains($this->name, '/')) {
+            try {
+                $orderBy = $this->orderByField
+                    ? ['field' => $this->orderByField, 'direction' => $this->orderDirection]
+                    : null;
+
+                $docs = $this->client->runQuery(
+                    $this->name,
+                    $this->whereFilters,
+                    $orderBy,
+                    $this->limitCount
+                );
+
+                if (!empty($docs)) {
+                    $result = [];
+                    foreach ($docs as $doc) {
+                        $docId = basename($doc['name'] ?? '');
+                        $docPath = $this->name . '/' . $docId;
+                        $result[] = new FirestoreDocument($doc, $this->client, $docPath);
+                    }
+                    return $result;
+                }
+            } catch (\Exception $e) {
+                \Log::warning("Server-side query failed for {$this->name}, falling back to client-side: " . $e->getMessage());
+            }
+        }
+
+        // Fallback: client-side filtering
         $docs = $this->client->list($this->name);
         $result = [];
 

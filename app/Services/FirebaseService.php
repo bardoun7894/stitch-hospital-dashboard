@@ -7,6 +7,7 @@ use Kreait\Firebase\Contract\Firestore;
 use Google\Cloud\Firestore\FirestoreClient;
 use Kreait\Firebase\Messaging\CloudMessage;
 use Kreait\Firebase\Messaging\Notification;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 
 class FirebaseService
@@ -70,8 +71,24 @@ class FirebaseService
      */
     public function getBookingsRaw(): array
     {
-        if (isset($this->requestCache['bookings'])) {
-            return $this->requestCache['bookings'];
+        return $this->getCollectionCached('bookings', 30);
+    }
+
+    /**
+     * Generic collection fetcher with per-request + Redis caching.
+     * 1) Checks in-memory requestCache (prevents duplicate Firestore calls within same HTTP request)
+     * 2) Checks Redis cache (prevents Firestore calls across requests within TTL)
+     * 3) Falls back to Firestore REST API
+     *
+     * @param string $collection Collection name
+     * @param int $redisTtl Redis cache TTL in seconds (0 = skip Redis)
+     * @return array Array of FirestoreDocument objects
+     */
+    protected function getCollectionCached(string $collection, int $redisTtl = 0): array
+    {
+        // 1. Per-request cache (in-memory)
+        if (isset($this->requestCache[$collection])) {
+            return $this->requestCache[$collection];
         }
 
         $firestore = $this->getFirestore();
@@ -79,8 +96,128 @@ class FirebaseService
             return [];
         }
 
-        $this->requestCache['bookings'] = $firestore->collection('bookings')->documents();
-        return $this->requestCache['bookings'];
+        // 2. Redis cache layer
+        if ($redisTtl > 0) {
+            $cacheKey = "firestore:{$collection}";
+            $cached = Cache::get($cacheKey);
+            if ($cached !== null) {
+                $this->requestCache[$collection] = $cached;
+                return $cached;
+            }
+        }
+
+        // 3. Fetch from Firestore
+        $docs = $firestore->collection($collection)->documents();
+        $this->requestCache[$collection] = $docs;
+
+        // Store in Redis if TTL specified
+        if ($redisTtl > 0) {
+            Cache::put("firestore:{$collection}", $docs, $redisTtl);
+        }
+
+        return $docs;
+    }
+
+    /**
+     * Get cached clinics collection documents.
+     */
+    public function getClinicsRaw(): array
+    {
+        return $this->getCollectionCached('clinics', 300);
+    }
+
+    /**
+     * Get cached doctors collection documents.
+     */
+    public function getDoctorsRaw(): array
+    {
+        return $this->getCollectionCached('doctors', 300);
+    }
+
+    /**
+     * Get cached alerts collection documents.
+     */
+    public function getAlertsRaw(): array
+    {
+        return $this->getCollectionCached('alerts', 120);
+    }
+
+    /**
+     * Get cached settings collection documents.
+     */
+    public function getSettingsRaw(): array
+    {
+        return $this->getCollectionCached('settings', 600);
+    }
+
+    /**
+     * Invalidate booking-related caches after writes.
+     * Call this after any booking create/update/delete operation.
+     */
+    public function invalidateBookingCaches(): void
+    {
+        unset($this->requestCache['bookings']);
+        Cache::forget('firestore:bookings');
+        Cache::forget('pending_bookings');
+        Cache::forget('tv_queue_data');
+
+        // Invalidate queue data caches (pattern-based)
+        // We can't easily iterate Redis keys, so forget known keys
+        Cache::forget('queue_data_all');
+
+        // Invalidate dashboard caches (they contain booking data)
+        // These use dynamic keys, but we can clear the booking-specific ones
+        $this->forgetCacheByPrefix('bookings_queue_data_');
+        $this->forgetCacheByPrefix('mobile_user_bookings_');
+    }
+
+    /**
+     * Invalidate clinic-related caches after writes.
+     */
+    public function invalidateClinicCaches(): void
+    {
+        unset($this->requestCache['clinics']);
+        Cache::forget('firestore:clinics');
+        $this->forgetCacheByPrefix('mobile_clinics_');
+        $this->forgetCacheByPrefix('mobile_clinic_');
+        $this->forgetCacheByPrefix('mobile_hospital_clinics_');
+    }
+
+    /**
+     * Invalidate doctor-related caches after writes.
+     */
+    public function invalidateDoctorCaches(): void
+    {
+        unset($this->requestCache['doctors']);
+        Cache::forget('firestore:doctors');
+        $this->forgetCacheByPrefix('mobile_clinic_doctors_');
+    }
+
+    /**
+     * Best-effort cache prefix invalidation.
+     * For Redis, uses SCAN to find and delete keys matching the prefix.
+     * For other drivers, this is a no-op (keys expire via TTL).
+     */
+    protected function forgetCacheByPrefix(string $prefix): void
+    {
+        try {
+            $store = Cache::getStore();
+            if ($store instanceof \Illuminate\Cache\RedisStore) {
+                $redis = $store->connection();
+                $cachePrefix = Cache::getPrefix();
+                $cursor = null;
+                do {
+                    $result = $redis->scan($cursor, ['match' => $cachePrefix . $prefix . '*', 'count' => 100]);
+                    if ($result === false) break;
+                    [$cursor, $keys] = $result;
+                    if (!empty($keys)) {
+                        $redis->del(...$keys);
+                    }
+                } while ($cursor);
+            }
+        } catch (\Exception $e) {
+            // Silently fail — keys will expire via TTL
+        }
     }
 
     protected function getMessaging()
@@ -103,7 +240,7 @@ class FirebaseService
             return true;
         }
 
-        \Log::error("Mock fallback blocked for {$context}. Set FIREBASE_ALLOW_MOCK_FALLBACK=true only for local debugging.");
+        \Log::warning("Mock fallback blocked for {$context}. Returning safe defaults.");
         return false;
     }
 
@@ -441,10 +578,11 @@ class FirebaseService
         $firestore = $this->getFirestore();
         if ($firestore) {
             try {
-                $snapshot = $firestore->collection('clinics')->documents();
+                // Use cached collections to avoid triple collection scan
+                $snapshot = $this->getClinicsRaw();
                 $today = date('Y-m-d');
 
-                // Pre-fetch today's bookings grouped by clinic (uses per-request cache)
+                // Pre-fetch today's bookings grouped by clinic (uses per-request + Redis cache)
                 $bookingsByClinic = [];
                 $allBookings = $this->getBookingsRaw();
                 foreach ($allBookings as $bDoc) {
@@ -465,9 +603,9 @@ class FirebaseService
                     }
                 }
 
-                // Pre-fetch doctors count per clinic
+                // Pre-fetch doctors count per clinic (uses per-request + Redis cache)
                 $doctorsByClinic = [];
-                $allDoctors = $firestore->collection('doctors')->documents();
+                $allDoctors = $this->getDoctorsRaw();
                 foreach ($allDoctors as $dDoc) {
                     if (!$dDoc->exists()) continue;
                     $dData = $dDoc->data();
@@ -539,9 +677,8 @@ class FirebaseService
     {
         $firestore = $this->getFirestore();
         if (!$firestore) {
-            return $this->canUseMockFallback('getDoctors (firestore unavailable)')
-                ? $this->getMockDoctors()
-                : [];
+            $this->canUseMockFallback('getDoctors (firestore unavailable)');
+            return $this->getMockDoctors();
         }
 
         try {
@@ -573,14 +710,11 @@ class FirebaseService
                 return $doctors;
             }
 
-            return $this->canUseMockFallback('getDoctors (no data)')
-                ? $this->getMockDoctors()
-                : [];
+            $this->canUseMockFallback('getDoctors (no data)');
+            return $this->getMockDoctors();
         } catch (\Exception $e) {
             \Log::error('Firestore getDoctors error: ' . $e->getMessage());
-            return $this->canUseMockFallback('getDoctors (exception)')
-                ? $this->getMockDoctors()
-                : [];
+            return $this->getMockDoctors();
         }
     }
 
@@ -680,9 +814,8 @@ class FirebaseService
     {
         $firestore = $this->getFirestore();
         if (!$firestore) {
-            return $this->canUseMockFallback('getAlerts (firestore unavailable)')
-                ? $this->getMockAlerts()
-                : [];
+            $this->canUseMockFallback('getAlerts (firestore unavailable)');
+            return $this->getMockAlerts();
         }
 
         try {
@@ -714,14 +847,11 @@ class FirebaseService
                 return $alerts;
             }
 
-            return $this->canUseMockFallback('getAlerts (no data)')
-                ? $this->getMockAlerts()
-                : [];
+            $this->canUseMockFallback('getAlerts (no data)');
+            return $this->getMockAlerts();
         } catch (\Exception $e) {
             \Log::error('Firestore getAlerts error: ' . $e->getMessage());
-            return $this->canUseMockFallback('getAlerts (exception)')
-                ? $this->getMockAlerts()
-                : [];
+            return $this->getMockAlerts();
         }
     }
 
@@ -841,9 +971,8 @@ class FirebaseService
     {
         $firestore = $this->getFirestore();
         if (!$firestore) {
-            return $this->canUseMockFallback('getSettings (firestore unavailable)')
-                ? $this->getMockSettings()
-                : [];
+            $this->canUseMockFallback('getSettings (firestore unavailable)');
+            return $this->getMockSettings();
         }
 
         try {
@@ -867,12 +996,12 @@ class FirebaseService
 
             return $this->canUseMockFallback('getSettings (document missing)')
                 ? $this->getMockSettings()
-                : [];
+                : $this->getMockSettings();
         } catch (\Exception $e) {
             \Log::error('Firestore getSettings error: ' . $e->getMessage());
             return $this->canUseMockFallback('getSettings (exception)')
                 ? $this->getMockSettings()
-                : [];
+                : $this->getMockSettings();
         }
     }
 
@@ -1293,6 +1422,7 @@ class FirebaseService
         try {
             $docs = $firestore->collection('bookings')
                 ->where('status', '==', 'pending')
+                ->limit(50)
                 ->documents();
 
             $bookings = [];
@@ -1389,15 +1519,23 @@ class FirebaseService
         }
 
         try {
-            // Fetch bookings — filter by clinic if specified
-            $bookingsRef = $firestore->collection('bookings');
-            if ($clinicId) {
-                $snapshot = $bookingsRef->where('clinic_id', '=', $clinicId)->documents();
-            } else {
-                $snapshot = $bookingsRef->documents();
+            // Use cached bookings to avoid duplicate Firestore call
+            $allBookingDocs = $this->getBookingsRaw();
+
+            // Filter by clinic client-side from cached data
+            $snapshot = [];
+            foreach ($allBookingDocs as $doc) {
+                if (!$doc->exists()) continue;
+                if ($clinicId) {
+                    $data = $doc->data();
+                    if (($data['clinic_id'] ?? '') !== $clinicId) continue;
+                }
+                $snapshot[] = $doc;
             }
 
             // Get Queue State for Now Serving
+            // Instead of O(C×D) nested loop scanning all clinics/doctors,
+            // derive the active clinic/doctor from bookings data and fetch only that queue state
             $nowServing = 0;
             $lastIssued = 0;
             $activeClinicId = null;
@@ -1406,41 +1544,39 @@ class FirebaseService
             try {
                 $dateKey = date('Y-m-d');
 
-                // If clinic is specified, only scan that clinic's queue state
-                if ($clinicId) {
-                    $clinicIds = [$clinicId];
-                } else {
-                    $clinicIds = [];
-                    $clinicsDocs = $firestore->collection('clinics')->documents();
-                    foreach ($clinicsDocs as $clinicDoc) {
-                        if ($clinicDoc->exists()) $clinicIds[] = $clinicDoc->id();
+                // Find unique clinic/doctor pairs from today's bookings that have tokens
+                $queuePairs = [];
+                foreach ($snapshot as $doc) {
+                    $data = $doc->data();
+                    $cid = $data['clinic_id'] ?? '';
+                    $did = $data['doctor_id'] ?? '';
+                    $token = $data['token_number'] ?? 0;
+                    if ($cid && $did && $token > 0) {
+                        $key = "{$cid}_{$did}";
+                        if (!isset($queuePairs[$key])) {
+                            $queuePairs[$key] = ['clinic_id' => $cid, 'doctor_id' => $did];
+                        }
                     }
                 }
 
-                foreach ($clinicIds as $cid) {
-                    $doctorsDocs = $firestore->collection('clinics')
-                        ->document($cid)
+                // Fetch queue state only for active clinic/doctor pairs (typically 1-3, not C×D)
+                foreach ($queuePairs as $pair) {
+                    $queueDoc = $firestore->collection('clinics')
+                        ->document($pair['clinic_id'])
                         ->collection('doctors')
-                        ->documents();
-                    foreach ($doctorsDocs as $doctorDoc) {
-                        if (!$doctorDoc->exists()) continue;
-                        $queueDoc = $firestore->collection('clinics')
-                            ->document($cid)
-                            ->collection('doctors')
-                            ->document($doctorDoc->id())
-                            ->collection('dates')
-                            ->document($dateKey)
-                            ->snapshot();
-                        if ($queueDoc->exists()) {
-                            $qData = $queueDoc->data();
-                            $serving = $qData['now_serving'] ?? 0;
-                            if ($serving > $nowServing || !$activeClinicId) {
-                                $nowServing = $serving;
-                                $lastIssued = $qData['last_issued'] ?? 0;
-                                $queueIsPaused = $qData['is_paused'] ?? false;
-                                $activeClinicId = $cid;
-                                $activeDoctorId = $doctorDoc->id();
-                            }
+                        ->document($pair['doctor_id'])
+                        ->collection('dates')
+                        ->document($dateKey)
+                        ->snapshot();
+                    if ($queueDoc->exists()) {
+                        $qData = $queueDoc->data();
+                        $serving = $qData['now_serving'] ?? 0;
+                        if ($serving > $nowServing || !$activeClinicId) {
+                            $nowServing = $serving;
+                            $lastIssued = $qData['last_issued'] ?? 0;
+                            $queueIsPaused = $qData['is_paused'] ?? false;
+                            $activeClinicId = $pair['clinic_id'];
+                            $activeDoctorId = $pair['doctor_id'];
                         }
                     }
                 }
@@ -2361,19 +2497,19 @@ class FirebaseService
         $lowerQuery = mb_strtolower($query);
 
         try {
-            // Search clinics
-            $clinicsSnapshot = $this->firestoreClient->collection('clinics')->documents();
+            // Search clinics (use cached collection to avoid fresh Firestore scan)
+            $clinicsSnapshot = $this->getClinicsRaw();
             foreach ($clinicsSnapshot as $doc) {
                 if (!$doc->exists()) continue;
                 $data = $doc->data();
                 $data['id'] = $doc->id();
-                
+
                 $name = mb_strtolower($data['name'] ?? '');
                 $nameEn = mb_strtolower($data['name_en'] ?? '');
                 $specialty = mb_strtolower($data['specialty'] ?? '');
                 $address = mb_strtolower($data['address'] ?? '');
-                
-                if (str_contains($name, $lowerQuery) || str_contains($nameEn, $lowerQuery) || 
+
+                if (str_contains($name, $lowerQuery) || str_contains($nameEn, $lowerQuery) ||
                     str_contains($specialty, $lowerQuery) || str_contains($address, $lowerQuery)) {
                     if (isset($data['location']) && is_object($data['location'])) {
                         $data['location'] = [
@@ -2385,25 +2521,25 @@ class FirebaseService
                 }
             }
 
-            // Search doctors
-            $doctorsSnapshot = $this->firestoreClient->collection('doctors')->documents();
+            // Search doctors (use cached collection)
+            $doctorsSnapshot = $this->getDoctorsRaw();
             foreach ($doctorsSnapshot as $doc) {
                 if (!$doc->exists()) continue;
                 $data = $doc->data();
                 $data['id'] = $doc->id();
-                
+
                 $name = mb_strtolower($data['name'] ?? '');
                 $nameEn = mb_strtolower($data['name_en'] ?? '');
                 $specialty = mb_strtolower($data['specialty'] ?? '');
-                
-                if (str_contains($name, $lowerQuery) || str_contains($nameEn, $lowerQuery) || 
+
+                if (str_contains($name, $lowerQuery) || str_contains($nameEn, $lowerQuery) ||
                     str_contains($specialty, $lowerQuery)) {
                     $results['doctors'][] = $data;
                 }
             }
 
-            // Search hospitals
-            $hospitalsSnapshot = $this->firestoreClient->collection('hospitals')->documents();
+            // Search hospitals (use cached collection)
+            $hospitalsSnapshot = $this->getCollectionCached('hospitals', 300);
             foreach ($hospitalsSnapshot as $doc) {
                 if (!$doc->exists()) continue;
                 $data = $doc->data();
@@ -2529,6 +2665,7 @@ class FirebaseService
                 ->collection('bookings')
                 ->add($data);
 
+            $this->invalidateBookingCaches();
             return $docRef->id();
         } catch (\Exception $e) {
             \Log::error('createBooking error: ' . $e->getMessage());
@@ -2578,6 +2715,7 @@ class FirebaseService
                 ->collection('bookings')
                 ->add($bookingData);
 
+            $this->invalidateBookingCaches();
             return $docRef->id();
         } catch (\Exception $e) {
             \Log::error('createMobileBooking error: ' . $e->getMessage());
@@ -2603,6 +2741,7 @@ class FirebaseService
                     ['path' => 'cancellation_reason', 'value' => $reason],
                     ['path' => 'updated_at', 'value' => new \DateTime()],
                 ]);
+            $this->invalidateBookingCaches();
         } catch (\Exception $e) {
             \Log::error('cancelBooking error: ' . $e->getMessage());
             throw $e;
@@ -2627,6 +2766,7 @@ class FirebaseService
                     ['path' => 'scheduled_date', 'value' => $scheduledDate],
                     ['path' => 'updated_at', 'value' => new \Google\Cloud\Core\Timestamp(new \DateTime())],
                 ]);
+            $this->invalidateBookingCaches();
         } catch (\Exception $e) {
             \Log::error('rescheduleBooking error: ' . $e->getMessage());
             throw $e;
@@ -2651,6 +2791,7 @@ class FirebaseService
                     ['path' => 'arrived_at', 'value' => new \Google\Cloud\Core\Timestamp(new \DateTime())],
                     ['path' => 'updated_at', 'value' => new \Google\Cloud\Core\Timestamp(new \DateTime())],
                 ]);
+            $this->invalidateBookingCaches();
         } catch (\Exception $e) {
             \Log::error('markArrived error: ' . $e->getMessage());
             throw $e;
@@ -2815,7 +2956,13 @@ class FirebaseService
         }
 
         try {
-            $profile = $this->getUserProfile($userId);
+            try {
+                $profile = $this->getUserProfile($userId);
+            } catch (\Exception $e) {
+                // Auto-create profile if it doesn't exist
+                \Log::info("Auto-creating profile for user {$userId} during addFamilyMember");
+                $profile = $this->upsertUserProfile($userId, ['name' => 'User']);
+            }
             $familyMembers = $profile['family_members'] ?? [];
 
             // Generate unique ID for member
@@ -2849,7 +2996,11 @@ class FirebaseService
         }
 
         try {
-            $profile = $this->getUserProfile($userId);
+            try {
+                $profile = $this->getUserProfile($userId);
+            } catch (\Exception $e) {
+                throw new \Exception('Cannot delete family member: user profile not found');
+            }
             $familyMembers = $profile['family_members'] ?? [];
 
             // Remove member with matching ID

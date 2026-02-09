@@ -32,17 +32,17 @@
              <div class="space-y-6">
                 <div>
                      <label class="block text-sm font-medium text-[#111418] dark:text-gray-300 mb-2">{{ __('messages.hospital_name') }}</label>
-                     <input type="text" value="{{ $settings['hospital_name'] }}" class="w-full bg-background-light dark:bg-[#111821] border border-[#e5e7eb] dark:border-[#2d3748] rounded-lg px-4 py-2 text-[#111418] dark:text-white focus:ring-2 focus:ring-primary focus:outline-none">
+                     <input type="text" value="{{ $settings['hospital_name'] ?? '' }}" class="w-full bg-background-light dark:bg-[#111821] border border-[#e5e7eb] dark:border-[#2d3748] rounded-lg px-4 py-2 text-[#111418] dark:text-white focus:ring-2 focus:ring-primary focus:outline-none">
                 </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
                          <label class="block text-sm font-medium text-[#111418] dark:text-gray-300 mb-2">{{ __('messages.admin_email') }}</label>
-                         <input type="email" value="{{ $settings['admin_email'] }}" class="w-full bg-background-light dark:bg-[#111821] border border-[#e5e7eb] dark:border-[#2d3748] rounded-lg px-4 py-2 text-[#111418] dark:text-white focus:ring-2 focus:ring-primary focus:outline-none">
+                         <input type="email" value="{{ $settings['admin_email'] ?? '' }}" class="w-full bg-background-light dark:bg-[#111821] border border-[#e5e7eb] dark:border-[#2d3748] rounded-lg px-4 py-2 text-[#111418] dark:text-white focus:ring-2 focus:ring-primary focus:outline-none">
                     </div>
                      <div>
                          <label class="block text-sm font-medium text-[#111418] dark:text-gray-300 mb-2">{{ __('messages.phone_label') }}</label>
-                         <input type="tel" value="{{ $settings['phone'] }}" class="w-full bg-background-light dark:bg-[#111821] border border-[#e5e7eb] dark:border-[#2d3748] rounded-lg px-4 py-2 text-[#111418] dark:text-white focus:ring-2 focus:ring-primary focus:outline-none">
+                         <input type="tel" value="{{ $settings['phone'] ?? '' }}" class="w-full bg-background-light dark:bg-[#111821] border border-[#e5e7eb] dark:border-[#2d3748] rounded-lg px-4 py-2 text-[#111418] dark:text-white focus:ring-2 focus:ring-primary focus:outline-none">
                     </div>
                 </div>
 
@@ -50,11 +50,11 @@
                     <label class="block text-sm font-medium text-[#111418] dark:text-gray-300 mb-2">{{ __('messages.theme_preference') }}</label>
                     <div class="flex space-x-4">
                         <label class="flex items-center cursor-pointer">
-                            <input type="radio" name="theme" {{ $settings['theme'] == 'light' ? 'checked' : '' }} class="text-primary focus:ring-primary w-4 h-4">
+                            <input type="radio" name="theme" {{ ($settings['theme'] ?? 'light') == 'light' ? 'checked' : '' }} class="text-primary focus:ring-primary w-4 h-4">
                             <span class="ml-2 text-[#637388] dark:text-[#9ca3af]">{{ __('messages.light_theme') }}</span>
                         </label>
                          <label class="flex items-center cursor-pointer">
-                            <input type="radio" name="theme" {{ $settings['theme'] == 'dark' ? 'checked' : '' }} class="text-primary focus:ring-primary w-4 h-4">
+                            <input type="radio" name="theme" {{ ($settings['theme'] ?? 'light') == 'dark' ? 'checked' : '' }} class="text-primary focus:ring-primary w-4 h-4">
                             <span class="ml-2 text-[#637388] dark:text-[#9ca3af]">{{ __('messages.dark_theme') }}</span>
                         </label>
                     </div>

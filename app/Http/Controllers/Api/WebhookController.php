@@ -29,11 +29,19 @@ class WebhookController extends Controller
      */
     public function handleStripeWebhook(Request $request): JsonResponse
     {
-        Stripe::setApiKey(config('services.stripe.secret'));
-        
+        $stripeSecret = config('services.stripe.secret');
+        $webhookSecret = config('services.stripe.webhook_secret');
+
+        // Mock mode: Stripe not configured
+        if (empty($stripeSecret) || empty($webhookSecret)) {
+            \Log::info('Stripe webhook received but Stripe is in mock mode - ignoring.');
+            return response()->json(['status' => 'mock_mode']);
+        }
+
+        Stripe::setApiKey($stripeSecret);
+
         $payload = $request->getContent();
         $sigHeader = $request->header('Stripe-Signature');
-        $webhookSecret = config('services.stripe.webhook_secret');
 
         try {
             $event = Webhook::constructEvent(
@@ -355,8 +363,15 @@ class WebhookController extends Controller
             'currency' => 'required|string|size:3',
         ]);
 
+        $stripeSecret = config('services.stripe.secret');
+
+        // Mock mode: when Stripe keys are not configured, simulate payment
+        if (empty($stripeSecret)) {
+            return $this->createMockPaymentIntent($validated);
+        }
+
         try {
-            Stripe::setApiKey(config('services.stripe.secret'));
+            Stripe::setApiKey($stripeSecret);
 
             $paymentIntent = \Stripe\PaymentIntent::create([
                 'amount' => (int)($validated['amount'] * 100), // Convert to cents
@@ -382,5 +397,102 @@ class WebhookController extends Controller
                 'error' => __('messages.payment_intent_failed'),
             ], 500);
         }
+    }
+
+    /**
+     * Create a mock payment intent when Stripe is not configured.
+     * Simulates a successful payment and immediately confirms the booking.
+     */
+    protected function createMockPaymentIntent(array $validated): JsonResponse
+    {
+        $bookingId = $validated['booking_id'];
+        $mockIntentId = 'mock_pi_' . uniqid();
+        $mockClientSecret = $mockIntentId . '_secret_' . bin2hex(random_bytes(8));
+
+        \Log::info("Mock payment intent created for booking {$bookingId}: {$mockIntentId}");
+
+        // Auto-confirm the booking since we're in mock mode
+        try {
+            $firestore = $this->firebaseService->getFirestore();
+            if ($firestore) {
+                $bookingRef = $firestore->collection('bookings')->document($bookingId);
+                $booking = $bookingRef->snapshot();
+
+                if ($booking->exists()) {
+                    $bookingData = $booking->data();
+                    $currentStatus = $bookingData['status'] ?? '';
+
+                    // Only auto-confirm if booking is awaiting payment
+                    if (in_array($currentStatus, ['acceptedAwaitingPayment', 'pending'])) {
+                        $clinicId = $bookingData['clinic_id'] ?? '';
+                        $doctorId = $bookingData['doctor_id'] ?? '';
+
+                        // Generate token number
+                        $newTokenNumber = 0;
+                        if ($clinicId && $doctorId) {
+                            $scheduledDate = $bookingData['scheduled_date'] ?? null;
+                            $dateKey = date('Y-m-d');
+                            if ($scheduledDate) {
+                                if (method_exists($scheduledDate, 'toDateTime')) {
+                                    $dateKey = $scheduledDate->toDateTime()->format('Y-m-d');
+                                } elseif ($scheduledDate instanceof \DateTime) {
+                                    $dateKey = $scheduledDate->format('Y-m-d');
+                                } elseif (is_string($scheduledDate)) {
+                                    $dateKey = substr($scheduledDate, 0, 10);
+                                }
+                            }
+
+                            $queueRef = $firestore->collection('clinics')
+                                ->document($clinicId)
+                                ->collection('doctors')
+                                ->document($doctorId)
+                                ->collection('dates')
+                                ->document($dateKey);
+
+                            $queueDoc = $queueRef->snapshot();
+                            $lastIssued = $queueDoc->exists() ? ($queueDoc->data()['last_issued'] ?? 0) : 0;
+                            $newTokenNumber = $lastIssued + 1;
+
+                            $isPaused = $queueDoc->exists() ? ($queueDoc->data()['is_paused'] ?? false) : false;
+                            $queueRef->set([
+                                'last_issued' => $newTokenNumber,
+                                'now_serving' => $queueDoc->exists() ? ($queueDoc->data()['now_serving'] ?? 0) : 0,
+                                'is_paused' => $isPaused,
+                                'status' => $isPaused ? 'paused' : 'running',
+                                'updated_at' => new \Google\Cloud\Core\Timestamp(new \DateTime()),
+                            ], ['merge' => true]);
+                        }
+
+                        $now = new \Google\Cloud\Core\Timestamp(new \DateTime());
+                        $updates = [
+                            ['path' => 'status', 'value' => 'confirmed'],
+                            ['path' => 'payment_status', 'value' => 'mock_paid'],
+                            ['path' => 'payment_intent_id', 'value' => $mockIntentId],
+                            ['path' => 'payment_date', 'value' => $now],
+                            ['path' => 'updated_at', 'value' => $now],
+                        ];
+                        if ($newTokenNumber > 0) {
+                            $updates[] = ['path' => 'token_number', 'value' => $newTokenNumber];
+                        }
+                        $bookingRef->update($updates);
+
+                        \Log::info("Mock payment: booking {$bookingId} confirmed with token {$newTokenNumber}");
+
+                        // Send notification
+                        $this->sendPaymentSuccessNotification($bookingId, $bookingData, $newTokenNumber);
+                    }
+                }
+            }
+        } catch (\Exception $e) {
+            \Log::error('Mock payment auto-confirm error: ' . $e->getMessage());
+        }
+
+        return response()->json([
+            'success' => true,
+            'mock' => true,
+            'client_secret' => $mockClientSecret,
+            'payment_intent_id' => $mockIntentId,
+            'message' => 'Mock payment - booking auto-confirmed',
+        ]);
     }
 }
