@@ -363,6 +363,103 @@ class MobileBookingController extends Controller
         return $earthRadius * $c;
     }
 
+
+    /**
+     * Confirm payment for pay-at-arrival bookings and assign token number.
+     * POST /api/mobile/bookings/{bookingId}/confirm-payment
+     */
+    public function confirmPayment(Request $request, string $bookingId): JsonResponse
+    {
+        $userId = $this->resolveUserId($request);
+        if (!$userId) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Authentication failed'
+            ], 401);
+        }
+
+        try {
+            $firestore = $this->firebaseService->getFirestore();
+            $bookingRef = $firestore->collection('bookings')->document($bookingId);
+            $booking = $bookingRef->snapshot();
+
+            if (!$booking->exists()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'الحجز غير موجود'
+                ], 404);
+            }
+
+            $bookingData = $booking->data();
+
+            // Verify booking belongs to user
+            if (($bookingData['patient_id'] ?? '') !== $userId) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthorized access'
+                ], 403);
+            }
+
+            $currentStatus = $bookingData['status'] ?? '';
+            if ($currentStatus !== 'acceptedAwaitingPayment') {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'لا يمكن تأكيد الدفع - الحالة: ' . $currentStatus
+                ], 400);
+            }
+
+            // Get queue state and assign next token
+            $clinicId = $bookingData['clinic_id'];
+            $doctorId = $bookingData['doctor_id'];
+            $scheduledDate = $bookingData['scheduled_date']->toDateTime();
+            $dateKey = $scheduledDate->format('Y-m-d');
+
+            $queueRef = $firestore->collection('clinics')
+                ->document($clinicId)
+                ->collection('doctors')
+                ->document($doctorId)
+                ->collection('dates')
+                ->document($dateKey);
+
+            $queueDoc = $queueRef->snapshot();
+            $lastIssued = $queueDoc->exists() ? ($queueDoc->data()['last_issued'] ?? 0) : 0;
+            $newTokenNumber = $lastIssued + 1;
+
+            // Update queue state
+            $nowServing = $queueDoc->exists() ? ($queueDoc->data()['now_serving'] ?? 0) : 0;
+            $isPaused = $queueDoc->exists() ? ($queueDoc->data()['is_paused'] ?? false) : false;
+            $queueRef->set([
+                'last_issued' => $newTokenNumber,
+                'now_serving' => $nowServing,
+                'is_paused' => $isPaused,
+                'status' => $isPaused ? 'paused' : 'running',
+                'updated_at' => new \Google\Cloud\Core\Timestamp(new \DateTime()),
+            ], ['merge' => true]);
+
+            // Update booking with confirmed status and token
+            $bookingRef->update([
+                ['path' => 'status', 'value' => 'confirmed'],
+                ['path' => 'token_number', 'value' => $newTokenNumber],
+                ['path' => 'payment_status', 'value' => 'pay_on_arrival'],
+                ['path' => 'updated_at', 'value' => new \Google\Cloud\Core\Timestamp(new \DateTime())],
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'token_number' => $newTokenNumber,
+                    'status' => 'confirmed',
+                ],
+                'message' => 'تم تأكيد الحجز وإصدار رقم الدور'
+            ]);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('Confirm payment error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'فشل تأكيد الدفع: ' . $e->getMessage()
+            ], 500);
+        }
+    }
     private function resolveUserId(Request $request): ?string
     {
         $uid = data_get($request->input('firebase_user'), 'uid');

@@ -710,4 +710,16 @@ return [
     'payment_on_arrival' => 'Pay on Arrival',
     'payment_on_arrival_note' => 'Payment on arrival - Queue number will not be shown until payment is confirmed',
     'patient_agreed_terms' => 'Patient agreed to booking terms',
+
+    // Cross-Navigation Quick Actions
+    'quick_actions' => 'Quick Actions',
+    'staff' => 'Staff',
+    'add_clinic_to_hospital' => 'Add Clinic to this Hospital',
+    'add_staff_to_hospital' => 'Add Staff to this Hospital',
+    'view_all_clinics' => 'View all Clinics',
+    'add_doctor_to_clinic' => 'Add Doctor to this Clinic',
+    'add_staff_to_clinic' => 'Add Staff to this Clinic',
+    'view_all_doctors' => 'View all Doctors',
+    'back_to_clinic' => 'Back to Clinic',
+    'add_another_doctor' => 'Add Another Doctor',
 ];

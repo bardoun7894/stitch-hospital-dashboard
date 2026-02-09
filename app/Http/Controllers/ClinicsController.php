@@ -91,7 +91,7 @@ class ClinicsController extends Controller
             $id = $this->firebase->createClinic($validated);
 
             if ($id) {
-                return redirect()->route('clinics.index')->with('success', __('messages.clinic_created'));
+                return redirect()->route('clinics.edit', $id)->with('success', __('messages.clinic_created'));
             }
 
             return back()->with('error', __('messages.clinic_creation_failed'))->withInput();

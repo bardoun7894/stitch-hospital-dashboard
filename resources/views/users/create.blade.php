@@ -68,7 +68,7 @@
             <select name="clinic_id" class="w-full px-4 py-2.5 border border-[#e5e7eb] dark:border-[#2d3748] rounded-lg bg-white dark:bg-[#222b3a] text-sm focus:ring-2 focus:ring-primary/30 focus:border-primary">
                 <option value="">{{ __('messages.none') }}</option>
                 @foreach($clinics as $clinic)
-                <option value="{{ $clinic['id'] }}" {{ old('clinic_id') === $clinic['id'] ? 'selected' : '' }}>{{ $clinic['name'] ?? $clinic['id'] }}</option>
+                <option value="{{ $clinic['id'] }}" {{ old('clinic_id', request('clinic_id')) === $clinic['id'] ? 'selected' : '' }}>{{ $clinic['name'] ?? $clinic['id'] }}</option>
                 @endforeach
             </select>
         </div>
@@ -78,7 +78,7 @@
             <select name="hospital_id" class="w-full px-4 py-2.5 border border-[#e5e7eb] dark:border-[#2d3748] rounded-lg bg-white dark:bg-[#222b3a] text-sm focus:ring-2 focus:ring-primary/30 focus:border-primary">
                 <option value="">{{ __('messages.none') }}</option>
                 @foreach($hospitals as $hospital)
-                <option value="{{ $hospital['id'] }}" {{ old('hospital_id') === $hospital['id'] ? 'selected' : '' }}>{{ $hospital['name'] ?? $hospital['id'] }}</option>
+                <option value="{{ $hospital['id'] }}" {{ old('hospital_id', request('hospital_id')) === $hospital['id'] ? 'selected' : '' }}>{{ $hospital['name'] ?? $hospital['id'] }}</option>
                 @endforeach
             </select>
         </div>

@@ -87,7 +87,7 @@ class DoctorsController extends Controller
             $id = $this->firebase->createDoctor($validated);
 
             if ($id) {
-                return redirect()->route('doctors.index')->with('success', __('messages.doctor_created'));
+                return redirect()->route('doctors.edit', $id)->with('success', __('messages.doctor_created'));
             }
 
             return back()->with('error', __('messages.doctor_creation_failed'))->withInput();

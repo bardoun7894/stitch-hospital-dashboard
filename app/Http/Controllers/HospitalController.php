@@ -82,7 +82,7 @@ class HospitalController extends Controller
             $hospitalId = $this->firebaseService->createHospital($validated);
 
             if ($hospitalId) {
-                return redirect()->route('hospital.index')->with('success', __('messages.hospital_created'));
+                return redirect()->route('hospital.edit', $hospitalId)->with('success', __('messages.hospital_created'));
             }
 
             return back()->with('error', __('messages.hospital_create_failed'))->withInput();

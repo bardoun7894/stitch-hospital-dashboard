@@ -88,5 +88,24 @@
             <a href="{{ route('hospital.index') }}" class="px-6 py-2.5 rounded-lg border border-[#e5e7eb] dark:border-[#2d3748] text-sm font-medium hover:bg-gray-50 dark:hover:bg-[#2d3748] transition-colors">{{ __('messages.cancel') }}</a>
         </div>
     </form>
+
+    {{-- Quick Actions --}}
+    <div class="bg-white dark:bg-[#1a222e] rounded-xl border border-[#e5e7eb] dark:border-[#2d3748] p-6 mt-6">
+        <h3 class="text-sm font-bold text-[#111418] dark:text-white mb-4">{{ __('messages.quick_actions') }}</h3>
+        <div class="flex flex-wrap gap-3">
+            <a href="{{ route('clinics.create', ['hospital_id' => $hospital['id']]) }}" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg border border-[#e5e7eb] dark:border-[#2d3748] text-sm font-medium text-[#111418] dark:text-white hover:bg-gray-50 dark:hover:bg-[#2d3748] transition-colors">
+                <span class="material-symbols-outlined text-base text-primary">add</span>
+                {{ __('messages.add_clinic_to_hospital') }}
+            </a>
+            <a href="{{ route('users.create', ['hospital_id' => $hospital['id']]) }}" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg border border-[#e5e7eb] dark:border-[#2d3748] text-sm font-medium text-[#111418] dark:text-white hover:bg-gray-50 dark:hover:bg-[#2d3748] transition-colors">
+                <span class="material-symbols-outlined text-base text-primary">person_add</span>
+                {{ __('messages.add_staff_to_hospital') }}
+            </a>
+            <a href="{{ route('clinics.index') }}" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg border border-[#e5e7eb] dark:border-[#2d3748] text-sm font-medium text-[#111418] dark:text-white hover:bg-gray-50 dark:hover:bg-[#2d3748] transition-colors">
+                <span class="material-symbols-outlined text-base text-primary">list</span>
+                {{ __('messages.view_all_clinics') }}
+            </a>
+        </div>
+    </div>
 </div>
 @endsection

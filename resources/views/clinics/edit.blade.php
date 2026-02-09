@@ -130,5 +130,24 @@
             </a>
         </div>
     </form>
+
+    {{-- Quick Actions --}}
+    <div class="bg-white dark:bg-[#1a222e] rounded-xl border border-[#e5e7eb] dark:border-[#2d3748] p-6 mt-6">
+        <h3 class="text-sm font-bold text-[#111418] dark:text-white mb-4">{{ __('messages.quick_actions') }}</h3>
+        <div class="flex flex-wrap gap-3">
+            <a href="{{ route('doctors.create', ['clinic_id' => $clinic['id']]) }}" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg border border-[#e5e7eb] dark:border-[#2d3748] text-sm font-medium text-[#111418] dark:text-white hover:bg-gray-50 dark:hover:bg-[#2d3748] transition-colors">
+                <span class="material-symbols-outlined text-base text-primary">person_add</span>
+                {{ __('messages.add_doctor_to_clinic') }}
+            </a>
+            <a href="{{ route('users.create', ['clinic_id' => $clinic['id']]) }}" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg border border-[#e5e7eb] dark:border-[#2d3748] text-sm font-medium text-[#111418] dark:text-white hover:bg-gray-50 dark:hover:bg-[#2d3748] transition-colors">
+                <span class="material-symbols-outlined text-base text-primary">group_add</span>
+                {{ __('messages.add_staff_to_clinic') }}
+            </a>
+            <a href="{{ route('doctors.index') }}" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg border border-[#e5e7eb] dark:border-[#2d3748] text-sm font-medium text-[#111418] dark:text-white hover:bg-gray-50 dark:hover:bg-[#2d3748] transition-colors">
+                <span class="material-symbols-outlined text-base text-primary">list</span>
+                {{ __('messages.view_all_doctors') }}
+            </a>
+        </div>
+    </div>
 </div>
 @endsection

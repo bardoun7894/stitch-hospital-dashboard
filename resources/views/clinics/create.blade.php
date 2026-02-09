@@ -48,7 +48,7 @@
             <select name="hospital_id" class="w-full px-4 py-2.5 border border-[#e5e7eb] dark:border-[#2d3748] rounded-lg bg-white dark:bg-[#222b3a] text-sm focus:ring-2 focus:ring-primary/30 focus:border-primary">
                 <option value="">{{ __('messages.none') }} ({{ __('messages.standalone_clinic') }})</option>
                 @foreach($hospitals as $hospital)
-                <option value="{{ $hospital['id'] }}" {{ old('hospital_id') === $hospital['id'] ? 'selected' : '' }}>{{ $hospital['name'] ?? $hospital['id'] }}</option>
+                <option value="{{ $hospital['id'] }}" {{ old('hospital_id', request('hospital_id')) === $hospital['id'] ? 'selected' : '' }}>{{ $hospital['name'] ?? $hospital['id'] }}</option>
                 @endforeach
             </select>
         </div>

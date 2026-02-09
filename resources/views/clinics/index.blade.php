@@ -68,6 +68,11 @@
                     </div>
                 </div>
                 <div class="bg-gray-50 dark:bg-[#202a37] p-4 border-t border-[#e5e7eb] dark:border-[#2d3748] flex justify-end gap-3 items-center">
+                    <a href="{{ route('doctors.create', ['clinic_id' => $clinic['id']]) }}" class="text-[#637388] dark:text-[#9ca3af] hover:text-primary text-sm font-medium transition-colors flex items-center gap-1">
+                        <span class="material-symbols-outlined text-base">person_add</span>
+                        {{ __('messages.doctors') }}
+                    </a>
+                    <span class="text-gray-300 dark:text-gray-600">|</span>
                     <a href="{{ route('bookings.index', ['clinic_id' => $clinic['id']]) }}" class="text-[#637388] dark:text-[#9ca3af] hover:text-primary text-sm font-medium transition-colors">{{ __('messages.view_queue') }}</a>
                     <span class="text-gray-300 dark:text-gray-600">|</span>
                     <a href="{{ route('clinics.edit', $clinic['id']) }}" class="text-[#637388] dark:text-[#9ca3af] hover:text-primary text-sm font-medium transition-colors">{{ __('messages.details') }}</a>

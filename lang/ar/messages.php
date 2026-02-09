@@ -710,4 +710,16 @@ return [
     'payment_on_arrival' => 'الدفع عند الوصول',
     'payment_on_arrival_note' => 'الدفع عند الوصول - لن يتم عرض رقم الدور حتى يتم تأكيد الدفع',
     'patient_agreed_terms' => 'المريض وافق على شروط الحجز',
+
+    // Cross-Navigation Quick Actions
+    'quick_actions' => 'إجراءات سريعة',
+    'staff' => 'الموظفون',
+    'add_clinic_to_hospital' => 'إضافة عيادة لهذا المستشفى',
+    'add_staff_to_hospital' => 'إضافة موظف لهذا المستشفى',
+    'view_all_clinics' => 'عرض جميع العيادات',
+    'add_doctor_to_clinic' => 'إضافة طبيب لهذه العيادة',
+    'add_staff_to_clinic' => 'إضافة موظف لهذه العيادة',
+    'view_all_doctors' => 'عرض جميع الأطباء',
+    'back_to_clinic' => 'العودة للعيادة',
+    'add_another_doctor' => 'إضافة طبيب آخر',
 ];

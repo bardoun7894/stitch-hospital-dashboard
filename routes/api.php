@@ -97,6 +97,8 @@ Route::prefix('mobile')->middleware(['firebase.auth', 'throttle:api'])->group(fu
             ->name('mobile.bookings.arrive');
         Route::post('/bookings/{bookingId}/reschedule', [MobileBookingController::class, 'reschedule'])
             ->name('mobile.bookings.reschedule');
+        Route::post('/bookings/{bookingId}/confirm-payment', [MobileBookingController::class, 'confirmPayment'])
+            ->name('mobile.bookings.confirm-payment');
     });
 
     // Queue

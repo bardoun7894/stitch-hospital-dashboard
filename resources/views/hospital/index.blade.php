@@ -79,14 +79,26 @@
             </div>
             @if(\App\Http\Middleware\RoleMiddleware::hasRole('super_admin'))
             <div class="bg-gray-50 dark:bg-[#222b3a] p-3 flex items-center justify-between">
-                <a href="{{ route('hospital.edit', $hospital['id']) }}" class="text-primary text-sm font-semibold hover:underline flex items-center gap-1">
-                    <span class="material-symbols-outlined text-base">edit</span>
-                    {{ __('messages.edit') }}
-                </a>
-                <button onclick="confirmDelete('{{ $hospital['id'] }}', '{{ addslashes($hospital['name'] ?? '') }}')" class="text-red-500 text-sm font-semibold hover:underline flex items-center gap-1">
-                    <span class="material-symbols-outlined text-base">delete</span>
-                    {{ __('messages.delete') }}
-                </button>
+                <div class="flex items-center gap-3">
+                    <a href="{{ route('clinics.create', ['hospital_id' => $hospital['id']]) }}" class="text-[#637388] dark:text-[#9ca3af] hover:text-primary text-sm font-semibold flex items-center gap-1 transition-colors">
+                        <span class="material-symbols-outlined text-base">medical_services</span>
+                        {{ __('messages.clinics_management') }}
+                    </a>
+                    <a href="{{ route('users.create', ['hospital_id' => $hospital['id']]) }}" class="text-[#637388] dark:text-[#9ca3af] hover:text-primary text-sm font-semibold flex items-center gap-1 transition-colors">
+                        <span class="material-symbols-outlined text-base">group</span>
+                        {{ __('messages.staff') }}
+                    </a>
+                </div>
+                <div class="flex items-center gap-3">
+                    <a href="{{ route('hospital.edit', $hospital['id']) }}" class="text-primary text-sm font-semibold hover:underline flex items-center gap-1">
+                        <span class="material-symbols-outlined text-base">edit</span>
+                        {{ __('messages.edit') }}
+                    </a>
+                    <button onclick="confirmDelete('{{ $hospital['id'] }}', '{{ addslashes($hospital['name'] ?? '') }}')" class="text-red-500 text-sm font-semibold hover:underline flex items-center gap-1">
+                        <span class="material-symbols-outlined text-base">delete</span>
+                        {{ __('messages.delete') }}
+                    </button>
+                </div>
             </div>
             @endif
         </div>
