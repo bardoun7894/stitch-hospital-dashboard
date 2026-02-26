@@ -6,7 +6,6 @@ use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use App\Services\FirebaseService;
 use App\Http\Middleware\RoleMiddleware;
-use Illuminate\Support\Facades\Cache;
 
 class MedicationController extends Controller
 {
@@ -18,27 +17,53 @@ class MedicationController extends Controller
     }
 
     /**
-     * Display prescriptions list.
+     * Display prescriptions list scoped by role.
      */
     public function index()
     {
         $currentUser = RoleMiddleware::getCurrentUser();
         $role = $currentUser['role'] ?? 'patient';
-        $doctorId = null;
+        $doctorId = $currentUser['doctor_id'] ?? null;
+        $clinicId = $currentUser['clinic_id'] ?? null;
+        $hospitalId = $currentUser['hospital_id'] ?? null;
 
-        // If the logged-in user is a doctor, only show their prescriptions
-        if ($role === 'doctor') {
-            $doctorId = $currentUser['id'] ?? null;
+        switch ($role) {
+            case 'doctor':
+                $prescriptions = $doctorId
+                    ? $this->firebaseService->getPrescriptions($doctorId)
+                    : [];
+                break;
+            case 'reception':
+            case 'clinic_admin':
+                $prescriptions = $clinicId
+                    ? $this->firebaseService->getPrescriptionsForClinic($clinicId)
+                    : [];
+                break;
+            case 'hospital_manager':
+                $prescriptions = $hospitalId
+                    ? $this->firebaseService->getPrescriptionsForHospital($hospitalId)
+                    : [];
+                break;
+            case 'super_admin':
+                $prescriptions = $this->firebaseService->getPrescriptions();
+                break;
+            default:
+                $prescriptions = [];
+                break;
         }
 
-        $cacheKey = 'medications_index_' . md5("{$role}_{$doctorId}");
+        // Get today's patients for the doctor's quick-select dropdown
+        $todaysPatients = [];
+        if ($role === 'doctor' && $doctorId) {
+            $todaysPatients = $this->firebaseService->getTodaysPatientsForDoctor($doctorId);
+        }
 
-        $data = Cache::remember($cacheKey, 30, function () use ($doctorId) {
-            return [
-                'prescriptions' => $this->firebaseService->getPrescriptions($doctorId),
-                'doctors' => $this->firebaseService->getDoctors(),
-            ];
-        });
+        $data = [
+            'prescriptions' => $prescriptions,
+            'doctors' => $this->firebaseService->getDoctors(),
+            'currentUser' => $currentUser,
+            'todaysPatients' => $todaysPatients,
+        ];
 
         return view('medications.index', $data);
     }
@@ -51,13 +76,13 @@ class MedicationController extends Controller
         $validated = $request->validate([
             'patient_id' => 'required|string',
             'doctor_id' => 'required|string',
-            'clinic_id' => 'required|string',
+            'clinic_id' => 'nullable|string',
             'medications' => 'required|array|min:1',
             'medications.*.name' => 'required|string|max:255',
             'medications.*.duration_days' => 'required|integer|min:1|max:365',
             'medications.*.interval_hours' => 'required|numeric|min:0.5|max:24',
             'medications.*.dose_amount' => 'required|string|max:100',
-            'medications.*.dose_unit' => 'required|string|in:ml,mg,pill,tablet,capsule,drop,spoon',
+            'medications.*.dose_unit' => 'required|string|in:ml,mg,pill,tablet,capsule,drop,spoon,suppository',
             'medications.*.first_dose_time' => 'required|date_format:H:i',
             'notes' => 'nullable|string|max:1000',
         ]);
@@ -66,6 +91,11 @@ class MedicationController extends Controller
             // Fetch denormalized names
             $patient = $this->firebaseService->getPatientDetails($validated['patient_id']);
             $doctor = $this->firebaseService->getDoctorById($validated['doctor_id']);
+
+            // Ensure clinic_id is set from doctor data if not provided
+            if (empty($validated['clinic_id'])) {
+                $validated['clinic_id'] = $doctor['clinic_id'] ?? '';
+            }
 
             $validated['patient_name'] = $patient['name'] ?? '';
             $validated['patient_phone'] = $patient['phone'] ?? '';
@@ -126,9 +156,24 @@ class MedicationController extends Controller
 
     /**
      * Deactivate/delete a prescription.
+     * Only the doctor who created the prescription can delete it.
      */
     public function destroy(string $id): JsonResponse
     {
+        $currentUser = RoleMiddleware::getCurrentUser();
+        $currentDoctorId = $currentUser['doctor_id'] ?? null;
+
+        // Verify ownership: only the prescribing doctor can delete
+        if ($currentDoctorId) {
+            $prescription = $this->firebaseService->getPrescriptionById($id);
+            if ($prescription && ($prescription['doctor_id'] ?? '') !== $currentDoctorId) {
+                return response()->json([
+                    'success' => false,
+                    'error' => __('messages.unauthorized_action'),
+                ], 403);
+            }
+        }
+
         $success = $this->firebaseService->deactivatePrescription($id);
 
         if ($success) {
@@ -145,12 +190,18 @@ class MedicationController extends Controller
     }
 
     /**
-     * Search patients (reuses existing search).
+     * Search patients scoped by role.
      */
     public function searchPatients(Request $request): JsonResponse
     {
+        $currentUser = RoleMiddleware::getCurrentUser();
+        $role = $currentUser['role'] ?? 'patient';
+        $doctorId = $currentUser['doctor_id'] ?? null;
+        $clinicId = $currentUser['clinic_id'] ?? null;
+        $hospitalId = $currentUser['hospital_id'] ?? null;
         $query = $request->query('q', '');
-        $patients = $this->firebaseService->searchPatients($query);
+
+        $patients = $this->firebaseService->searchPatientsScoped($query, $role, $doctorId, $clinicId, $hospitalId);
 
         return response()->json([
             'success' => true,

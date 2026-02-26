@@ -6,7 +6,6 @@ use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use App\Services\FirebaseService;
 use App\Http\Middleware\RoleMiddleware;
-use Illuminate\Support\Facades\Cache;
 
 class TreatmentPlanController extends Controller
 {
@@ -21,21 +20,44 @@ class TreatmentPlanController extends Controller
     {
         $currentUser = RoleMiddleware::getCurrentUser();
         $role = $currentUser['role'] ?? 'patient';
-        $doctorId = null;
+        $doctorId = $currentUser['doctor_id'] ?? null;
+        $clinicId = $currentUser['clinic_id'] ?? null;
+        $hospitalId = $currentUser['hospital_id'] ?? null;
 
-        // If the logged-in user is a doctor, only show their plans
-        if ($role === 'doctor') {
-            $doctorId = $currentUser['id'] ?? null;
+        switch ($role) {
+            case 'doctor':
+                $plans = $doctorId
+                    ? $this->firebaseService->getTreatmentPlans($doctorId)
+                    : [];
+                break;
+            case 'reception':
+            case 'clinic_admin':
+                $plans = $clinicId
+                    ? $this->firebaseService->getTreatmentPlansForClinic($clinicId)
+                    : [];
+                break;
+            case 'hospital_manager':
+                $plans = $hospitalId
+                    ? $this->firebaseService->getTreatmentPlansForHospital($hospitalId)
+                    : [];
+                break;
+            default:
+                $plans = $this->firebaseService->getTreatmentPlans();
+                break;
         }
 
-        $cacheKey = 'treatment_plans_index_' . md5("{$role}_{$doctorId}");
+        // Get today's patients for the doctor's quick-select dropdown
+        $todaysPatients = [];
+        if ($role === 'doctor' && $doctorId) {
+            $todaysPatients = $this->firebaseService->getTodaysPatientsForDoctor($doctorId);
+        }
 
-        $data = Cache::remember($cacheKey, 30, function () use ($doctorId) {
-            return [
-                'plans' => $this->firebaseService->getTreatmentPlans($doctorId),
-                'doctors' => $this->firebaseService->getDoctors(),
-            ];
-        });
+        $data = [
+            'plans' => $plans,
+            'doctors' => $this->firebaseService->getDoctors(),
+            'currentUser' => $currentUser,
+            'todaysPatients' => $todaysPatients,
+        ];
 
         return view('treatment-plans.index', $data);
     }
@@ -45,7 +67,7 @@ class TreatmentPlanController extends Controller
         $validated = $request->validate([
             'patient_id' => 'required|string',
             'doctor_id' => 'required|string',
-            'clinic_id' => 'required|string',
+            'clinic_id' => 'nullable|string',
             'diagnosis' => 'required|string|max:500',
             'notes' => 'nullable|string|max:1000',
         ]);
@@ -54,6 +76,11 @@ class TreatmentPlanController extends Controller
             // Fetch denormalized names
             $patient = $this->firebaseService->getPatientDetails($validated['patient_id']);
             $doctor = $this->firebaseService->getDoctorById($validated['doctor_id']);
+
+            // Ensure clinic_id is set from doctor data if not provided
+            if (empty($validated['clinic_id'])) {
+                $validated['clinic_id'] = $doctor['clinic_id'] ?? '';
+            }
 
             $validated['patient_name'] = $patient['name'] ?? '';
             $validated['patient_phone'] = $patient['phone'] ?? '';
@@ -110,8 +137,14 @@ class TreatmentPlanController extends Controller
 
     public function searchPatients(Request $request): JsonResponse
     {
+        $currentUser = RoleMiddleware::getCurrentUser();
+        $role = $currentUser['role'] ?? 'patient';
+        $doctorId = $currentUser['doctor_id'] ?? null;
+        $clinicId = $currentUser['clinic_id'] ?? null;
+        $hospitalId = $currentUser['hospital_id'] ?? null;
         $query = $request->query('q', '');
-        $patients = $this->firebaseService->searchPatients($query);
+
+        $patients = $this->firebaseService->searchPatientsScoped($query, $role, $doctorId, $clinicId, $hospitalId);
 
         return response()->json([
             'success' => true,

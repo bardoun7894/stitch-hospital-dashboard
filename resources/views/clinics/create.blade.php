@@ -99,14 +99,46 @@
             </div>
         </div>
 
-        <div class="grid grid-cols-2 gap-4">
-            <div>
-                <label class="block text-sm font-medium text-[#111418] dark:text-white mb-1.5">{{ __('messages.latitude') }}</label>
-                <input type="number" name="latitude" value="{{ old('latitude') }}" step="any" class="w-full px-4 py-2.5 border border-[#e5e7eb] dark:border-[#2d3748] rounded-lg bg-white dark:bg-[#222b3a] text-sm focus:ring-2 focus:ring-primary/30 focus:border-primary" placeholder="24.7136">
+        <x-map-picker :latitude="old('latitude', '')" :longitude="old('longitude', '')" />
+
+        {{-- Accepted Insurance Section --}}
+        <div class="pt-4 border-t border-[#e5e7eb] dark:border-[#2d3748]" x-data="{ insuranceProviders: {{ json_encode(old('accepted_insurance', [])) }}, newInsurer: '' }">
+            <h3 class="text-sm font-bold text-[#111418] dark:text-white mb-4 flex items-center gap-2">
+                <span class="material-symbols-outlined text-primary text-base">health_and_safety</span>
+                {{ __('messages.accepted_insurance') }}
+            </h3>
+
+            <div class="flex gap-2 mb-3">
+                <input type="text" x-model="newInsurer" @keydown.enter.prevent="if(newInsurer.trim() && !insuranceProviders.includes(newInsurer.trim())) { insuranceProviders.push(newInsurer.trim()); newInsurer = ''; }" class="flex-1 px-4 py-2.5 border border-[#e5e7eb] dark:border-[#2d3748] rounded-lg bg-white dark:bg-[#222b3a] text-sm focus:ring-2 focus:ring-primary/30 focus:border-primary text-[#111418] dark:text-white" placeholder="{{ __('messages.add_insurance_provider') }}">
+                <button type="button" @click="if(newInsurer.trim() && !insuranceProviders.includes(newInsurer.trim())) { insuranceProviders.push(newInsurer.trim()); newInsurer = ''; }" class="px-4 py-2.5 bg-primary text-white rounded-lg hover:bg-primary/90 text-sm font-medium transition-colors flex items-center gap-1">
+                    <span class="material-symbols-outlined text-sm">add</span>
+                    {{ __('messages.add_insurance_provider') }}
+                </button>
             </div>
-            <div>
-                <label class="block text-sm font-medium text-[#111418] dark:text-white mb-1.5">{{ __('messages.longitude') }}</label>
-                <input type="number" name="longitude" value="{{ old('longitude') }}" step="any" class="w-full px-4 py-2.5 border border-[#e5e7eb] dark:border-[#2d3748] rounded-lg bg-white dark:bg-[#222b3a] text-sm focus:ring-2 focus:ring-primary/30 focus:border-primary" placeholder="46.6753">
+
+            {{-- Common Saudi Insurers Quick-Add --}}
+            <div class="mb-3">
+                <p class="text-xs text-[#637388] dark:text-[#9ca3af] mb-2">{{ __('messages.common_insurers') }}:</p>
+                <div class="flex flex-wrap gap-1.5">
+                    @foreach(['Bupa Arabia', 'Tawuniya', 'MedGulf', 'CCHI', 'Malath', 'Al Rajhi Takaful', 'Walaa', 'AXA Cooperative', 'Gulf Union', 'Solidarity'] as $insurer)
+                    <button type="button" @click="if(!insuranceProviders.includes('{{ $insurer }}')) { insuranceProviders.push('{{ $insurer }}'); }" class="px-2.5 py-1 text-xs font-medium rounded-lg border border-[#e5e7eb] dark:border-[#2d3748] text-[#637388] dark:text-[#9ca3af] hover:border-primary hover:text-primary dark:hover:border-primary dark:hover:text-primary transition-colors" :class="insuranceProviders.includes('{{ $insurer }}') ? 'opacity-40 pointer-events-none' : ''">
+                        + {{ $insurer }}
+                    </button>
+                    @endforeach
+                </div>
+            </div>
+
+            <div class="flex flex-wrap gap-2">
+                <template x-for="(insurer, index) in insuranceProviders" :key="index">
+                    <span class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-primary/10 text-primary rounded-full text-xs font-medium">
+                        <span class="material-symbols-outlined text-xs">health_and_safety</span>
+                        <span x-text="insurer"></span>
+                        <input type="hidden" name="accepted_insurance[]" :value="insurer">
+                        <button type="button" @click="insuranceProviders.splice(index, 1)" class="hover:text-red-500 transition-colors">
+                            <span class="material-symbols-outlined text-sm">close</span>
+                        </button>
+                    </span>
+                </template>
             </div>
         </div>
 

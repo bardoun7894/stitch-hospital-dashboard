@@ -47,6 +47,10 @@ return [
         'allow_mock_fallback' => env('FIREBASE_ALLOW_MOCK_FALLBACK', false),
     ],
 
+    'google_maps' => [
+        'api_key' => env('GOOGLE_MAPS_API_KEY', ''),
+    ],
+
     'sms' => [
         'provider' => env('SMS_PROVIDER', 'log'),
         'from' => env('SMS_FROM'),

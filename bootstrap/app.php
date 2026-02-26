@@ -18,6 +18,13 @@ return Application::configure(basePath: dirname(__DIR__))
             ->withoutOverlapping()
             ->runInBackground()
             ->appendOutputTo(storage_path('logs/dose-reminders.log'));
+
+        // Send appointment reminders daily at 6 PM (evening before)
+        $schedule->command('appointments:send-reminders')
+            ->dailyAt('18:00')
+            ->withoutOverlapping()
+            ->runInBackground()
+            ->appendOutputTo(storage_path('logs/appointment-reminders.log'));
     })
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->web(append: [

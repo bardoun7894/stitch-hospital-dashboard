@@ -24,8 +24,11 @@ class MobileHospitalsController extends Controller
     public function index(Request $request): JsonResponse
     {
         try {
-            $hospitals = Cache::remember('mobile_hospitals', 300, function () {
-                return $this->firebaseService->getHospitals();
+            $hospitals = Cache::remember('mobile_hospitals_active', 300, function () {
+                $all = $this->firebaseService->getHospitals();
+                return array_values(array_filter($all, function ($h) {
+                    return ($h['status'] ?? '') === 'active';
+                }));
             });
 
             return response()->json([
@@ -52,7 +55,7 @@ class MobileHospitalsController extends Controller
                 return $this->firebaseService->getHospitalById($hospitalId);
             });
 
-            if (!$hospital) {
+            if (!$hospital || ($hospital['status'] ?? '') !== 'active') {
                 return response()->json([
                     'success' => false,
                     'message' => 'Hospital not found'
@@ -83,7 +86,7 @@ class MobileHospitalsController extends Controller
                 return $this->firebaseService->getHospitalById($hospitalId);
             });
 
-            if (!$hospital) {
+            if (!$hospital || ($hospital['status'] ?? '') !== 'active') {
                 return response()->json([
                     'success' => false,
                     'message' => 'Hospital not found'

@@ -63,22 +63,23 @@
             </select>
         </div>
 
+        {{-- Hospital first, then clinic (filtered) --}}
         <div>
-            <label class="block text-sm font-medium text-[#111418] dark:text-white mb-1.5">{{ __('messages.assign_clinic') }}</label>
-            <select name="clinic_id" class="w-full px-4 py-2.5 border border-[#e5e7eb] dark:border-[#2d3748] rounded-lg bg-white dark:bg-[#222b3a] text-sm focus:ring-2 focus:ring-primary/30 focus:border-primary">
-                <option value="">{{ __('messages.none') }}</option>
-                @foreach($clinics as $clinic)
-                <option value="{{ $clinic['id'] }}" {{ old('clinic_id', request('clinic_id')) === $clinic['id'] ? 'selected' : '' }}>{{ $clinic['name'] ?? $clinic['id'] }}</option>
+            <label class="block text-sm font-medium text-[#111418] dark:text-white mb-1.5">{{ __('messages.assign_hospital') }} *</label>
+            <select name="hospital_id" id="hospital_id" class="w-full px-4 py-2.5 border border-[#e5e7eb] dark:border-[#2d3748] rounded-lg bg-white dark:bg-[#222b3a] text-sm focus:ring-2 focus:ring-primary/30 focus:border-primary">
+                <option value="">{{ __('messages.select') }}...</option>
+                @foreach($hospitals as $hospital)
+                <option value="{{ $hospital['id'] }}" {{ old('hospital_id', request('hospital_id')) === $hospital['id'] ? 'selected' : '' }}>{{ $hospital['name'] ?? $hospital['id'] }}</option>
                 @endforeach
             </select>
         </div>
 
         <div>
-            <label class="block text-sm font-medium text-[#111418] dark:text-white mb-1.5">{{ __('messages.assign_hospital') }}</label>
-            <select name="hospital_id" class="w-full px-4 py-2.5 border border-[#e5e7eb] dark:border-[#2d3748] rounded-lg bg-white dark:bg-[#222b3a] text-sm focus:ring-2 focus:ring-primary/30 focus:border-primary">
-                <option value="">{{ __('messages.none') }}</option>
-                @foreach($hospitals as $hospital)
-                <option value="{{ $hospital['id'] }}" {{ old('hospital_id', request('hospital_id')) === $hospital['id'] ? 'selected' : '' }}>{{ $hospital['name'] ?? $hospital['id'] }}</option>
+            <label class="block text-sm font-medium text-[#111418] dark:text-white mb-1.5">{{ __('messages.assign_clinic') }} *</label>
+            <select name="clinic_id" id="clinic_id" class="w-full px-4 py-2.5 border border-[#e5e7eb] dark:border-[#2d3748] rounded-lg bg-white dark:bg-[#222b3a] text-sm focus:ring-2 focus:ring-primary/30 focus:border-primary">
+                <option value="">{{ __('messages.select_hospital_first') }}</option>
+                @foreach($clinics as $clinic)
+                <option value="{{ $clinic['id'] }}" data-hospital="{{ $clinic['hospital_id'] ?? '' }}" {{ old('clinic_id', request('clinic_id')) === $clinic['id'] ? 'selected' : '' }}>{{ $clinic['name'] ?? $clinic['id'] }}</option>
                 @endforeach
             </select>
         </div>
@@ -93,4 +94,54 @@
         </div>
     </form>
 </div>
+
+<script>
+// Filter clinics dropdown based on selected hospital
+const hospitalSelect = document.getElementById('hospital_id');
+const clinicSelect = document.getElementById('clinic_id');
+const allClinicOptions = Array.from(clinicSelect.querySelectorAll('option[data-hospital]'));
+const defaultOption = clinicSelect.querySelector('option:first-child');
+
+function filterClinics() {
+    const selectedHospital = hospitalSelect.value;
+    const currentClinic = clinicSelect.value;
+
+    // Remove all options except default
+    while (clinicSelect.options.length > 1) {
+        clinicSelect.remove(1);
+    }
+
+    if (!selectedHospital) {
+        defaultOption.textContent = '{{ __("messages.select_hospital_first") }}';
+        return;
+    }
+
+    defaultOption.textContent = '{{ __("messages.select") }}...';
+
+    // Add back matching clinics
+    let found = false;
+    allClinicOptions.forEach(opt => {
+        if (opt.dataset.hospital === selectedHospital) {
+            const newOpt = opt.cloneNode(true);
+            if (newOpt.value === currentClinic) {
+                newOpt.selected = true;
+                found = true;
+            }
+            clinicSelect.appendChild(newOpt);
+        }
+    });
+
+    // If current selection is not valid for new hospital, reset
+    if (!found) {
+        clinicSelect.value = '';
+    }
+}
+
+hospitalSelect.addEventListener('change', filterClinics);
+
+// Run on page load if hospital is pre-selected
+if (hospitalSelect.value) {
+    filterClinics();
+}
+</script>
 @endsection

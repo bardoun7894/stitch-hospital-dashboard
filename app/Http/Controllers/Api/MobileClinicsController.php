@@ -53,12 +53,20 @@ class MobileClinicsController extends Controller
     public function show(Request $request, string $clinicId): JsonResponse
     {
         $locale = $request->input('locale', 'ar');
+        $date = $request->input('date', date('Y-m-d'));
 
         try {
             $clinic = Cache::remember("mobile_clinic_{$clinicId}_{$locale}", 300, function () use ($clinicId, $locale) {
                 $clinic = $this->firebaseService->getClinicById($clinicId);
                 return $this->localizeClinic($clinic, $locale);
             });
+
+            // Check if requested date is a holiday
+            $isHoliday = $this->firebaseService->isClinicHoliday($clinicId, $date);
+            $clinic['is_holiday'] = $isHoliday;
+            if ($isHoliday) {
+                $clinic['holiday_message'] = __('messages.clinic_closed_holiday');
+            }
 
             return response()->json([
                 'success' => true,
@@ -115,6 +123,7 @@ class MobileClinicsController extends Controller
         try {
             $cacheKey = "mobile_slots_{$clinicId}_{$doctorId}_{$validated['date']}";
             $data = Cache::remember($cacheKey, 60, function () use ($clinicId, $doctorId, $validated) {
+                $isHoliday = $this->firebaseService->isClinicHoliday($clinicId, $validated['date']);
                 $slots = $this->firebaseService->getAvailableSlots(
                     $clinicId,
                     $doctorId,
@@ -123,6 +132,8 @@ class MobileClinicsController extends Controller
                 $hoursCheck = $this->firebaseService->isWithinWorkingHours($clinicId, $doctorId);
                 return [
                     'slots' => $slots,
+                    'is_holiday' => $isHoliday,
+                    'holiday_message' => $isHoliday ? __('messages.clinic_closed_holiday') : null,
                     'working_hours' => [
                         'within_hours' => $hoursCheck['within_hours'],
                         'sessions' => $hoursCheck['sessions'],
@@ -160,8 +171,13 @@ class MobileClinicsController extends Controller
      */
     private function localizeDoctor(array $doctor, string $locale): array
     {
-        if ($locale === 'en' && isset($doctor['name_en'])) {
-            $doctor['name'] = $doctor['name_en'];
+        if ($locale === 'en') {
+            if (isset($doctor['name_en'])) {
+                $doctor['name'] = $doctor['name_en'];
+            }
+            if (isset($doctor['bio_en'])) {
+                $doctor['bio'] = $doctor['bio_en'];
+            }
         }
         return $doctor;
     }
@@ -212,12 +228,15 @@ class MobileClinicsController extends Controller
                 $results = $this->firebaseService->searchAll($query);
                 $results['clinics'] = array_map(fn($c) => $this->localizeClinic($c, $locale), $results['clinics']);
                 $results['doctors'] = array_map(fn($d) => $this->localizeDoctor($d, $locale), $results['doctors']);
-                $results['hospitals'] = array_map(function ($hospital) use ($locale) {
-                    if ($locale === 'en' && isset($hospital['name_en'])) {
-                        $hospital['name'] = $hospital['name_en'];
-                    }
-                    return $hospital;
-                }, $results['hospitals']);
+                $results['hospitals'] = array_values(array_filter(
+                    array_map(function ($hospital) use ($locale) {
+                        if ($locale === 'en' && isset($hospital['name_en'])) {
+                            $hospital['name'] = $hospital['name_en'];
+                        }
+                        return $hospital;
+                    }, $results['hospitals']),
+                    fn($h) => ($h['status'] ?? '') === 'active'
+                ));
                 return $results;
             });
 

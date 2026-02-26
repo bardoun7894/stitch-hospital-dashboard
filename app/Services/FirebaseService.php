@@ -474,7 +474,14 @@ class FirebaseService
                 'name_en' => $data['name_en'] ?? $data['name'] ?? '',
                 'address' => $data['address'] ?? '',
                 'phone' => $data['phone'] ?? '',
-                'status' => $data['status'] ?? 'active',
+                'status' => $data['status'] ?? 'pending',
+                'submitted_by' => $data['submitted_by'] ?? null,
+                'submitted_at' => (new \DateTime())->format('Y-m-d\TH:i:s\Z'),
+                'reviewed_by' => null,
+                'reviewed_at' => null,
+                'rejection_reason' => null,
+                'contact_person' => $data['contact_person'] ?? null,
+                'contact_email' => $data['contact_email'] ?? null,
                 'created_at' => (new \DateTime())->format('Y-m-d\TH:i:s\Z'),
                 'updated_at' => (new \DateTime())->format('Y-m-d\TH:i:s\Z'),
             ];
@@ -487,6 +494,7 @@ class FirebaseService
             }
 
             $result = $firestore->createDocument('hospitals', $fields);
+            $this->invalidateHospitalCaches();
             if ($result && isset($result['name'])) {
                 return basename($result['name']);
             }
@@ -504,7 +512,7 @@ class FirebaseService
 
         try {
             $updates = [];
-            $allowedFields = ['name', 'name_en', 'address', 'phone', 'status'];
+            $allowedFields = ['name', 'name_en', 'address', 'phone', 'status', 'logo_url'];
             foreach ($allowedFields as $field) {
                 if (isset($data[$field])) {
                     $updates[] = ['path' => $field, 'value' => $data[$field]];
@@ -534,11 +542,96 @@ class FirebaseService
         if (!$firestore) return false;
 
         try {
-            return $firestore->deleteDocument("hospitals/{$hospitalId}");
+            $result = $firestore->deleteDocument("hospitals/{$hospitalId}");
+            $this->invalidateHospitalCaches();
+            return $result;
         } catch (\Exception $e) {
             \Log::error('Error deleting hospital: ' . $e->getMessage());
             return false;
         }
+    }
+
+    public function approveHospital(string $hospitalId, string $reviewerId): bool
+    {
+        $firestore = $this->getFirestore();
+        if (!$firestore) return false;
+
+        try {
+            $updates = [
+                ['path' => 'status', 'value' => 'active'],
+                ['path' => 'reviewed_by', 'value' => $reviewerId],
+                ['path' => 'reviewed_at', 'value' => (new \DateTime())->format('Y-m-d\TH:i:s\Z')],
+                ['path' => 'rejection_reason', 'value' => null],
+                ['path' => 'updated_at', 'value' => new \DateTime()],
+            ];
+            $firestore->collection('hospitals')->document($hospitalId)->update($updates);
+            $this->invalidateHospitalCaches();
+            return true;
+        } catch (\Exception $e) {
+            \Log::error('Error approving hospital: ' . $e->getMessage());
+            return false;
+        }
+    }
+
+    public function rejectHospital(string $hospitalId, string $reviewerId, string $reason): bool
+    {
+        $firestore = $this->getFirestore();
+        if (!$firestore) return false;
+
+        try {
+            $updates = [
+                ['path' => 'status', 'value' => 'rejected'],
+                ['path' => 'reviewed_by', 'value' => $reviewerId],
+                ['path' => 'reviewed_at', 'value' => (new \DateTime())->format('Y-m-d\TH:i:s\Z')],
+                ['path' => 'rejection_reason', 'value' => $reason],
+                ['path' => 'updated_at', 'value' => new \DateTime()],
+            ];
+            $firestore->collection('hospitals')->document($hospitalId)->update($updates);
+            $this->invalidateHospitalCaches();
+            return true;
+        } catch (\Exception $e) {
+            \Log::error('Error rejecting hospital: ' . $e->getMessage());
+            return false;
+        }
+    }
+
+    public function resubmitHospital(string $hospitalId): bool
+    {
+        $firestore = $this->getFirestore();
+        if (!$firestore) return false;
+
+        try {
+            $updates = [
+                ['path' => 'status', 'value' => 'pending'],
+                ['path' => 'reviewed_by', 'value' => null],
+                ['path' => 'reviewed_at', 'value' => null],
+                ['path' => 'rejection_reason', 'value' => null],
+                ['path' => 'submitted_at', 'value' => (new \DateTime())->format('Y-m-d\TH:i:s\Z')],
+                ['path' => 'updated_at', 'value' => new \DateTime()],
+            ];
+            $firestore->collection('hospitals')->document($hospitalId)->update($updates);
+            $this->invalidateHospitalCaches();
+            return true;
+        } catch (\Exception $e) {
+            \Log::error('Error resubmitting hospital: ' . $e->getMessage());
+            return false;
+        }
+    }
+
+    public function getPendingHospitalsCount(): int
+    {
+        $hospitals = $this->getHospitals();
+        return count(array_filter($hospitals, fn($h) => ($h['status'] ?? '') === 'pending'));
+    }
+
+    public function invalidateHospitalCaches(): void
+    {
+        unset($this->requestCache['hospitals']);
+        Cache::forget('firestore:hospitals');
+        $this->forgetCacheByPrefix('hospital_index_');
+        Cache::forget('mobile_hospitals_active');
+        $this->forgetCacheByPrefix('mobile_hospital_');
+        $this->forgetCacheByPrefix('mobile_search_');
     }
 
     public function getClinicsForHospital(string $hospitalId): array
@@ -655,6 +748,7 @@ class FirebaseService
                             'icon' => $data['icon'] ?? 'medical_services',
                             'icon_color' => $data['icon_color'] ?? 'blue',
                             'hospital_id' => $data['hospital_id'] ?? null,
+                            'clinic_status' => $data['status'] ?? 'active',
                             'doctors_on_duty' => $doctorsOnDuty,
                             'patients_waiting' => $patientsWaiting,
                             'avg_wait' => $avgWait,
@@ -700,6 +794,8 @@ class FirebaseService
                         'specialty' => $data['specialty'] ?? '',
                         'clinic' => $data['clinic_id'] ?? '',
                         'clinic_id' => $data['clinic_id'] ?? '',
+                        'hospital_id' => $data['hospital_id'] ?? '',
+                        'user_id' => $data['user_id'] ?? '',
                         'phone' => $data['phone'] ?? '',
                         'status' => $data['status'] ?? 'off',
                     ];
@@ -716,6 +812,23 @@ class FirebaseService
             \Log::error('Firestore getDoctors error: ' . $e->getMessage());
             return $this->getMockDoctors();
         }
+    }
+
+    /**
+     * Get all doctors belonging to clinics of a specific hospital.
+     *
+     * @param string $hospitalId
+     * @return array
+     */
+    public function getDoctorsForHospital(string $hospitalId): array
+    {
+        $clinics = $this->getClinicsForHospital($hospitalId);
+        $clinicIds = array_map(fn($c) => $c['id'] ?? '', $clinics);
+
+        $allDoctors = $this->getDoctors();
+        return array_values(array_filter($allDoctors, function ($doctor) use ($clinicIds) {
+            return in_array($doctor['clinic'] ?? $doctor['clinic_id'] ?? '', $clinicIds);
+        }));
     }
 
     protected function getMockDoctors()
@@ -767,11 +880,169 @@ class FirebaseService
 
         $searchQuery = strtolower($searchQuery);
         return array_filter($allPatients, function($p) use ($searchQuery) {
-            return str_contains(strtolower($p['name']), $searchQuery) || 
+            return str_contains(strtolower($p['name']), $searchQuery) ||
                    str_contains($p['phone'], $searchQuery) ||
                    str_contains(strtolower((string) ($p['email'] ?? '')), $searchQuery) ||
                    str_contains((string) ($p['national_id'] ?? ''), $searchQuery);
         });
+    }
+
+    /**
+     * Get patients for a specific doctor by finding all bookings assigned to them.
+     * Returns unique patients across all historical bookings.
+     */
+    public function getPatientsForDoctor(string $doctorId): array
+    {
+        $allBookings = $this->getBookingsRaw();
+        $patientIds = [];
+
+        foreach ($allBookings as $bDoc) {
+            if (!$bDoc->exists()) continue;
+            $bData = $bDoc->data();
+            if (($bData['doctor_id'] ?? '') === $doctorId && !empty($bData['patient_id'])) {
+                $patientIds[$bData['patient_id']] = true;
+            }
+        }
+
+        return $this->fetchPatientsByIds(array_keys($patientIds));
+    }
+
+    /**
+     * Get patients for a specific clinic by finding all bookings for that clinic.
+     */
+    public function getPatientsForClinic(string $clinicId): array
+    {
+        $allBookings = $this->getBookingsRaw();
+        $patientIds = [];
+
+        foreach ($allBookings as $bDoc) {
+            if (!$bDoc->exists()) continue;
+            $bData = $bDoc->data();
+            if (($bData['clinic_id'] ?? '') === $clinicId && !empty($bData['patient_id'])) {
+                $patientIds[$bData['patient_id']] = true;
+            }
+        }
+
+        return $this->fetchPatientsByIds(array_keys($patientIds));
+    }
+
+    /**
+     * Get patients for a hospital by finding all clinics in that hospital,
+     * then all bookings for those clinics.
+     */
+    public function getPatientsForHospital(string $hospitalId): array
+    {
+        // Get all clinics belonging to this hospital
+        $clinicsRaw = $this->getClinicsRaw();
+        $clinicIds = [];
+        foreach ($clinicsRaw as $cDoc) {
+            if (!$cDoc->exists()) continue;
+            $cData = $cDoc->data();
+            if (($cData['hospital_id'] ?? '') === $hospitalId) {
+                $clinicIds[$cDoc->id()] = true;
+            }
+        }
+
+        if (empty($clinicIds)) {
+            return [];
+        }
+
+        // Find all bookings for those clinics
+        $allBookings = $this->getBookingsRaw();
+        $patientIds = [];
+        foreach ($allBookings as $bDoc) {
+            if (!$bDoc->exists()) continue;
+            $bData = $bDoc->data();
+            if (isset($clinicIds[$bData['clinic_id'] ?? '']) && !empty($bData['patient_id'])) {
+                $patientIds[$bData['patient_id']] = true;
+            }
+        }
+
+        return $this->fetchPatientsByIds(array_keys($patientIds));
+    }
+
+    /**
+     * Fetch patient details for a list of IDs and return in standard list format.
+     */
+    protected function fetchPatientsByIds(array $patientIds): array
+    {
+        $patients = [];
+        foreach ($patientIds as $patientId) {
+            $detail = $this->getPatientDetails($patientId);
+            if ($detail) {
+                $patients[] = [
+                    'id' => $detail['id'],
+                    'name' => $detail['name'] ?? 'Unknown',
+                    'phone' => $detail['phone'] ?? '-',
+                    'national_id' => $detail['national_id'] ?? '-',
+                    'email' => $detail['email'] ?? '-',
+                    'created_at' => isset($detail['created_at']) && $detail['created_at'] !== '-'
+                        ? (strlen($detail['created_at']) > 10 ? substr($detail['created_at'], 0, 10) : $detail['created_at'])
+                        : '-',
+                ];
+            }
+        }
+        return $patients;
+    }
+
+    /**
+     * Compute patient statistics from an already-fetched patients array.
+     */
+    public function getPatientStats(array $patients): array
+    {
+        $total = count($patients);
+        $currentMonth = date('Y-m');
+        $newThisMonth = 0;
+
+        foreach ($patients as $p) {
+            $createdAt = $p['created_at'] ?? '-';
+            if ($createdAt !== '-' && str_starts_with($createdAt, $currentMonth)) {
+                $newThisMonth++;
+            }
+        }
+
+        return [
+            'total' => $total,
+            'new_this_month' => $newThisMonth,
+            'pending_insurance' => 0,
+        ];
+    }
+
+    /**
+     * Search patients scoped to a specific role.
+     * First fetches role-scoped patients, then applies text search filter.
+     */
+    public function searchPatientsScoped(string $query, string $role, ?string $doctorId, ?string $clinicId, ?string $hospitalId): array
+    {
+        // Get role-scoped patients
+        switch ($role) {
+            case 'doctor':
+                $patients = $doctorId ? $this->getPatientsForDoctor($doctorId) : [];
+                break;
+            case 'reception':
+            case 'clinic_admin':
+                $patients = $clinicId ? $this->getPatientsForClinic($clinicId) : [];
+                break;
+            case 'hospital_manager':
+                $patients = $hospitalId ? $this->getPatientsForHospital($hospitalId) : [];
+                break;
+            default:
+                $patients = $this->getPatients();
+                break;
+        }
+
+        if (empty($query)) {
+            return $patients;
+        }
+
+        // Apply text search filter
+        $query = strtolower($query);
+        return array_values(array_filter($patients, function ($p) use ($query) {
+            return str_contains(strtolower($p['name']), $query) ||
+                   str_contains($p['phone'], $query) ||
+                   str_contains(strtolower((string) ($p['email'] ?? '')), $query) ||
+                   str_contains((string) ($p['national_id'] ?? ''), $query);
+        }));
     }
 
     public function createPatient($data)
@@ -1185,17 +1456,44 @@ class FirebaseService
         $firestore = $this->getFirestore();
         if (!$firestore) return;
 
+        $updates = [
+            ['path' => 'schedule', 'value' => $scheduleData['working_hours']],
+            ['path' => 'working_hours', 'value' => $scheduleData['working_hours']],
+            ['path' => 'updated_at', 'value' => new \DateTime()],
+        ];
+
+        if (isset($scheduleData['slot_duration'])) {
+            $updates[] = ['path' => 'slot_duration', 'value' => $scheduleData['slot_duration']];
+        }
+
+        if (isset($scheduleData['duty_days'])) {
+            $updates[] = ['path' => 'duty_days', 'value' => $scheduleData['duty_days']];
+        }
+
+        $firestore->collection('doctors')
+            ->document($doctorId)
+            ->update($updates);
+    }
+
+    /**
+     * Update only duty_days for a doctor.
+     */
+    public function updateDutyDays(string $doctorId, array $dutyDays)
+    {
+        $firestore = $this->getFirestore();
+        if (!$firestore) return;
+
         $firestore->collection('doctors')
             ->document($doctorId)
             ->update([
-                ['path' => 'schedule', 'value' => $scheduleData['working_hours']],
+                ['path' => 'duty_days', 'value' => $dutyDays],
                 ['path' => 'updated_at', 'value' => new \DateTime()],
             ]);
     }
 
     /**
      * Add unavailability period for a doctor.
-     * 
+     *
      * @param string $doctorId
      * @param array $data ['start' => DateTime, 'end' => DateTime, 'reason' => string]
      * @return string|null The ID of the created document
@@ -1696,6 +1994,7 @@ class FirebaseService
                     'is_reinserted' => $data['is_reinserted'] ?? false,
                     'is_followup' => $data['is_followup'] ?? false,
                     'payment_note' => $data['payment_note'] ?? null,
+                    'payment_status' => $data['payment_status'] ?? null,
                     'clinic_id' => $data['clinic_id'] ?? '',
                     'doctor_id' => $data['doctor_id'] ?? '',
                 ];
@@ -1982,7 +2281,7 @@ class FirebaseService
                 
                 $bookingData = $doc->data();
                 $tokenNumber = $bookingData['token_number'] ?? 0;
-                $userId = $bookingData['user_id'] ?? null;
+                $userId = $bookingData['patient_id'] ?? $bookingData['user_id'] ?? null;
                 
                 if (!$userId || $tokenNumber <= 0) continue;
                 
@@ -2359,6 +2658,135 @@ class FirebaseService
     }
 
     /**
+     * Find a doctor record by user_id (for doctor login).
+     * Searches the doctors collection for a document where user_id matches.
+     *
+     * @param string $userId The user ID from the users collection
+     * @return array|null The doctor record with 'id', or null if not found
+     */
+    public function getDoctorByUserId(string $userId): ?array
+    {
+        $firestore = $this->getFirestore();
+        if (!$firestore) return null;
+
+        try {
+            $doctors = $this->getCollectionCached('doctors', 60);
+            foreach ($doctors as $doc) {
+                $data = $doc->data();
+                if (($data['user_id'] ?? null) === $userId) {
+                    $data['id'] = $doc->id();
+                    return $data;
+                }
+            }
+            return null;
+        } catch (\Exception $e) {
+            \Log::error('getDoctorByUserId error: ' . $e->getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Get bookings for a specific doctor, optionally filtered by date.
+     * Each booking is enriched with patient medical details.
+     *
+     * @param string $doctorId
+     * @param string|null $date Y-m-d format
+     * @return array
+     */
+    public function getBookingsForDoctor(string $doctorId, ?string $date = null): array
+    {
+        $firestore = $this->getFirestore();
+        if (!$firestore) return [];
+
+        try {
+            $allBookings = $this->getBookingsRaw();
+            $today = $date ?? date('Y-m-d');
+            $filtered = [];
+
+            foreach ($allBookings as $doc) {
+                $data = $doc->data();
+                if (($data['doctor_id'] ?? '') !== $doctorId) continue;
+
+                // Filter by date
+                $scheduledDate = $data['scheduled_date'] ?? null;
+                if ($scheduledDate) {
+                    if ($scheduledDate instanceof \Google\Cloud\Core\Timestamp) {
+                        $bookingDate = $scheduledDate->get()->format('Y-m-d');
+                    } else {
+                        $bookingDate = date('Y-m-d', strtotime($scheduledDate));
+                    }
+                    if ($bookingDate !== $today) continue;
+                }
+
+                $data['id'] = $doc->id();
+
+                // Enrich with patient details
+                $patientId = $data['patient_id'] ?? null;
+                if ($patientId) {
+                    $patient = $this->getPatientDetails($patientId);
+                    $data['patient_weight'] = $patient['weight'] ?? null;
+                    $data['patient_height'] = $patient['height'] ?? null;
+                    $data['patient_blood_pressure'] = $patient['blood_pressure'] ?? null;
+                    $data['patient_allergies'] = $patient['allergies'] ?? null;
+                }
+
+                $filtered[] = $data;
+            }
+
+            // Sort by token_number
+            usort($filtered, function ($a, $b) {
+                return ($a['token_number'] ?? 999) <=> ($b['token_number'] ?? 999);
+            });
+
+            return $filtered;
+        } catch (\Exception $e) {
+            \Log::error('getBookingsForDoctor error: ' . $e->getMessage());
+            return [];
+        }
+    }
+
+    /**
+     * Get queue state for a specific doctor on a given date.
+     *
+     * @param string $clinicId
+     * @param string $doctorId
+     * @param string $date Y-m-d format
+     * @return array Queue state: now_serving, last_issued, is_paused, remaining
+     */
+    public function getDoctorQueueState(string $clinicId, string $doctorId, string $date): array
+    {
+        $firestore = $this->getFirestore();
+        if (!$firestore) return ['now_serving' => 0, 'last_issued' => 0, 'is_paused' => false, 'remaining' => 0];
+
+        try {
+            $queueDoc = $firestore->collection('clinics')
+                ->document($clinicId)
+                ->collection('doctors')
+                ->document($doctorId)
+                ->collection('dates')
+                ->document($date)
+                ->snapshot();
+
+            if ($queueDoc->exists()) {
+                $data = $queueDoc->data();
+                $nowServing = $data['now_serving'] ?? 0;
+                $lastIssued = $data['last_issued'] ?? 0;
+                return [
+                    'now_serving' => $nowServing,
+                    'last_issued' => $lastIssued,
+                    'is_paused' => $data['is_paused'] ?? false,
+                    'remaining' => max(0, $lastIssued - $nowServing),
+                ];
+            }
+
+            return ['now_serving' => 0, 'last_issued' => 0, 'is_paused' => false, 'remaining' => 0];
+        } catch (\Exception $e) {
+            \Log::error('getDoctorQueueState error: ' . $e->getMessage());
+            return ['now_serving' => 0, 'last_issued' => 0, 'is_paused' => false, 'remaining' => 0];
+        }
+    }
+
+    /**
      * Get clinic by ID
      */
     public function getClinicById($clinicId)
@@ -2711,6 +3139,12 @@ class FirebaseService
                     'updated_at' => $now,
                 ];
 
+            // Add coupon data if present
+            if (!empty($data['coupon_code'])) {
+                $bookingData['coupon_code'] = $data['coupon_code'];
+                $bookingData['discount_amount'] = (float)($data['discount_amount'] ?? 0);
+            }
+
             $docRef = $this->firestoreClient
                 ->collection('bookings')
                 ->add($bookingData);
@@ -2794,6 +3228,82 @@ class FirebaseService
             $this->invalidateBookingCaches();
         } catch (\Exception $e) {
             \Log::error('markArrived error: ' . $e->getMessage());
+            throw $e;
+        }
+    }
+
+    /**
+     * Confirm cash payment for a booking and assign token number.
+     * Used by reception staff to record in-person cash payments.
+     *
+     * @param string $bookingId Booking document ID
+     * @param string $confirmedBy User ID/name of the staff member confirming payment
+     * @return int The assigned token number
+     * @throws \Exception If booking not found, wrong status, or Firestore error
+     */
+    public function confirmCashPayment(string $bookingId, string $confirmedBy): int
+    {
+        if (!$this->firestoreClient) {
+            throw new \Exception('Firestore client not initialized');
+        }
+
+        try {
+            $firestore = $this->firestoreClient;
+            $bookingRef = $firestore->collection('bookings')->document($bookingId);
+            $booking = $bookingRef->snapshot();
+
+            if (!$booking->exists()) {
+                throw new \Exception(__('messages.booking_not_found'));
+            }
+
+            $bookingData = $booking->data();
+            $currentStatus = $bookingData['status'] ?? '';
+
+            if ($currentStatus !== 'acceptedAwaitingPayment') {
+                throw new \Exception(__('messages.cannot_confirm_payment') . ' - ' . __('messages.status') . ': ' . $currentStatus);
+            }
+
+            // Get queue state and assign next token
+            $clinicId = $bookingData['clinic_id'];
+            $doctorId = $bookingData['doctor_id'];
+            $scheduledDate = $bookingData['scheduled_date']->toDateTime();
+            $dateKey = $scheduledDate->format('Y-m-d');
+
+            $queueRef = $firestore->collection('clinics')
+                ->document($clinicId)
+                ->collection('doctors')
+                ->document($doctorId)
+                ->collection('dates')
+                ->document($dateKey);
+
+            $queueDoc = $queueRef->snapshot();
+            $lastIssued = $queueDoc->exists() ? ($queueDoc->data()['last_issued'] ?? 0) : 0;
+            $newTokenNumber = $lastIssued + 1;
+
+            // Update queue state
+            $isPaused = $queueDoc->exists() ? ($queueDoc->data()['is_paused'] ?? false) : false;
+            $queueRef->set([
+                'last_issued' => $newTokenNumber,
+                'now_serving' => $queueDoc->exists() ? ($queueDoc->data()['now_serving'] ?? 0) : 0,
+                'is_paused' => $isPaused,
+                'status' => $isPaused ? 'paused' : 'running',
+                'updated_at' => new \Google\Cloud\Core\Timestamp(new \DateTime()),
+            ], ['merge' => true]);
+
+            // Update booking: confirmed + cash payment + token
+            $bookingRef->update([
+                ['path' => 'status', 'value' => 'confirmed'],
+                ['path' => 'payment_status', 'value' => 'cash'],
+                ['path' => 'payment_confirmed_by', 'value' => $confirmedBy],
+                ['path' => 'token_number', 'value' => $newTokenNumber],
+                ['path' => 'updated_at', 'value' => new \Google\Cloud\Core\Timestamp(new \DateTime())],
+            ]);
+
+            $this->invalidateBookingCaches();
+
+            return $newTokenNumber;
+        } catch (\Exception $e) {
+            \Log::error('confirmCashPayment error: ' . $e->getMessage());
             throw $e;
         }
     }
@@ -3068,6 +3578,11 @@ class FirebaseService
         }
 
         try {
+            // Check if the clinic is closed for a holiday on this date
+            if ($this->isClinicHoliday($clinicId, $date)) {
+                return [];
+            }
+
             // Get doctor's schedule
             $doctor = $this->getDoctorDetails($clinicId, $doctorId);
             $schedule = $doctor['schedule'] ?? [];
@@ -3382,12 +3897,21 @@ class FirebaseService
                 'name_en' => $data['name_en'] ?? $data['name'] ?? '',
                 'specialty' => $data['specialty'] ?? '',
                 'clinic_id' => $data['clinic_id'] ?? '',
+                'hospital_id' => $data['hospital_id'] ?? '',
                 'phone' => $data['phone'] ?? '',
                 'consultation_fee' => (float)($data['consultation_fee'] ?? 0),
                 'status' => $data['status'] ?? 'available',
                 'avatar_url' => $data['avatar_url'] ?? '',
+                'photo_url' => $data['photo_url'] ?? '',
+                'bio' => $data['bio'] ?? '',
+                'bio_en' => $data['bio_en'] ?? '',
+                'education' => $data['education'] ?? '',
+                'certifications' => $data['certifications'] ?? [],
+                'years_experience' => (int)($data['years_experience'] ?? 0),
+                'languages' => $data['languages'] ?? [],
                 'rating' => 0.0,
                 'review_count' => 0,
+                'user_id' => $data['user_id'] ?? '',
                 'created_at' => new \DateTime(),
                 'updated_at' => new \DateTime(),
             ];
@@ -3412,12 +3936,15 @@ class FirebaseService
         try {
             $updates = [];
 
-            $allowedFields = ['name', 'name_en', 'specialty', 'clinic_id', 'phone', 'consultation_fee', 'status', 'avatar_url'];
+            $allowedFields = ['name', 'name_en', 'specialty', 'clinic_id', 'hospital_id', 'phone', 'consultation_fee', 'status', 'avatar_url', 'photo_url', 'bio', 'bio_en', 'education', 'certifications', 'years_experience', 'languages', 'user_id'];
             foreach ($allowedFields as $field) {
                 if (isset($data[$field])) {
                     $value = $data[$field];
                     if ($field === 'consultation_fee') {
                         $value = (float) $value;
+                    }
+                    if ($field === 'years_experience') {
+                        $value = (int) $value;
                     }
                     $updates[] = ['path' => $field, 'value' => $value];
                 }
@@ -3471,6 +3998,7 @@ class FirebaseService
                 'daily_capacity' => (int)($data['daily_capacity'] ?? 50),
                 'follow_up_window_days' => (int)($data['follow_up_window_days'] ?? 30),
                 'working_hours' => $data['working_hours'] ?? ['start' => '09:00', 'end' => '17:00'],
+                'accepted_insurance' => $data['accepted_insurance'] ?? [],
                 'created_at' => (new \DateTime())->format('Y-m-d\TH:i:s\Z'),
                 'updated_at' => (new \DateTime())->format('Y-m-d\TH:i:s\Z'),
             ];
@@ -3544,6 +4072,111 @@ class FirebaseService
             \Log::error('getTreatmentPlans error: ' . $e->getMessage());
             return [];
         }
+    }
+
+    /**
+     * Get treatment plans for a specific clinic.
+     */
+    public function getTreatmentPlansForClinic(string $clinicId, string $status = 'active'): array
+    {
+        $firestore = $this->getFirestore();
+        if (!$firestore) return [];
+
+        try {
+            $query = $firestore->collection('treatment_plans')
+                ->where('status', '=', $status)
+                ->where('clinic_id', '=', $clinicId);
+
+            $snapshot = $query->documents();
+            $plans = [];
+
+            foreach ($snapshot as $doc) {
+                if (!$doc->exists()) continue;
+                $data = $doc->data();
+                $data['id'] = $doc->id();
+
+                if (isset($data['created_at']) && $data['created_at'] instanceof \Google\Cloud\Core\Timestamp) {
+                    $data['created_at'] = $data['created_at']->get()->format('Y-m-d H:i');
+                }
+                if (isset($data['updated_at']) && $data['updated_at'] instanceof \Google\Cloud\Core\Timestamp) {
+                    $data['updated_at'] = $data['updated_at']->get()->format('Y-m-d H:i');
+                }
+
+                $plans[] = $data;
+            }
+
+            return $plans;
+        } catch (\Exception $e) {
+            \Log::error('getTreatmentPlansForClinic error: ' . $e->getMessage());
+            return [];
+        }
+    }
+
+    /**
+     * Get treatment plans for a hospital (all clinics belonging to it).
+     */
+    public function getTreatmentPlansForHospital(string $hospitalId, string $status = 'active'): array
+    {
+        $clinicsRaw = $this->getClinicsRaw();
+        $clinicIds = [];
+        foreach ($clinicsRaw as $cDoc) {
+            if (!$cDoc->exists()) continue;
+            $cData = $cDoc->data();
+            if (($cData['hospital_id'] ?? '') === $hospitalId) {
+                $clinicIds[$cDoc->id()] = true;
+            }
+        }
+
+        if (empty($clinicIds)) {
+            return [];
+        }
+
+        $allPlans = $this->getTreatmentPlans(null, $status);
+        return array_values(array_filter($allPlans, function ($p) use ($clinicIds) {
+            return isset($clinicIds[$p['clinic_id'] ?? '']);
+        }));
+    }
+
+    /**
+     * Get today's booked patients for a specific doctor.
+     * Returns unique patients with booking info from today's bookings.
+     */
+    public function getTodaysPatientsForDoctor(string $doctorId): array
+    {
+        $allBookings = $this->getBookingsRaw();
+        $today = date('Y-m-d');
+        $patients = [];
+        $seenIds = [];
+
+        foreach ($allBookings as $bDoc) {
+            if (!$bDoc->exists()) continue;
+            $bData = $bDoc->data();
+
+            if (($bData['doctor_id'] ?? '') !== $doctorId) continue;
+            if (empty($bData['patient_id'])) continue;
+
+            // Check date
+            $scheduledDate = $bData['scheduled_date'] ?? null;
+            $bookingDate = null;
+            if ($scheduledDate instanceof \Google\Cloud\Core\Timestamp) {
+                $bookingDate = $scheduledDate->get()->format('Y-m-d');
+            } elseif (is_string($scheduledDate)) {
+                $bookingDate = substr($scheduledDate, 0, 10);
+            }
+            if ($bookingDate !== $today) continue;
+
+            $patientId = $bData['patient_id'];
+            if (isset($seenIds[$patientId])) continue;
+            $seenIds[$patientId] = true;
+
+            $patients[] = [
+                'id' => $patientId,
+                'name' => $bData['patient_name'] ?? 'Unknown',
+                'phone' => $bData['patient_phone'] ?? '-',
+            ];
+        }
+
+        return $patients;
     }
 
     public function getActiveTreatmentPlan(string $doctorId, string $patientId): ?array
@@ -3839,6 +4472,65 @@ class FirebaseService
     }
 
     /**
+     * Get prescriptions for a specific clinic.
+     * Filters active prescriptions by clinic_id.
+     */
+    public function getPrescriptionsForClinic(string $clinicId, string $status = 'active'): array
+    {
+        $firestore = $this->getFirestore();
+        if (!$firestore) return [];
+
+        try {
+            $query = $firestore->collection('prescriptions')
+                ->where('status', '=', $status)
+                ->where('clinic_id', '=', $clinicId);
+
+            $docs = $query->documents();
+            $prescriptions = [];
+
+            foreach ($docs as $doc) {
+                if (!$doc->exists()) continue;
+                $data = $doc->data();
+                $data['id'] = $doc->id();
+                $data['medications_count'] = count($data['medications'] ?? []);
+                $prescriptions[] = $data;
+            }
+
+            return $prescriptions;
+        } catch (\Exception $e) {
+            \Log::error('getPrescriptionsForClinic error: ' . $e->getMessage());
+            return [];
+        }
+    }
+
+    /**
+     * Get prescriptions for a hospital (all clinics belonging to it).
+     */
+    public function getPrescriptionsForHospital(string $hospitalId, string $status = 'active'): array
+    {
+        // Get all clinic IDs for this hospital
+        $clinicsRaw = $this->getClinicsRaw();
+        $clinicIds = [];
+        foreach ($clinicsRaw as $cDoc) {
+            if (!$cDoc->exists()) continue;
+            $cData = $cDoc->data();
+            if (($cData['hospital_id'] ?? '') === $hospitalId) {
+                $clinicIds[$cDoc->id()] = true;
+            }
+        }
+
+        if (empty($clinicIds)) {
+            return [];
+        }
+
+        // Fetch all prescriptions with given status and filter by clinic IDs
+        $allPrescriptions = $this->getPrescriptions(null, null, $status);
+        return array_values(array_filter($allPrescriptions, function ($p) use ($clinicIds) {
+            return isset($clinicIds[$p['clinic_id'] ?? '']);
+        }));
+    }
+
+    /**
      * Get a single prescription by ID.
      */
     public function getPrescriptionById(string $id): ?array
@@ -4007,5 +4699,1704 @@ class FirebaseService
         });
 
         return $upcomingDoses;
+    }
+
+    // ─── Password Reset Methods ───
+
+    /**
+     * Store a password reset token in Firestore password_resets collection.
+     *
+     * @param string $email
+     * @param string $token
+     * @return bool
+     */
+    public function storePasswordResetToken(string $email, string $token): bool
+    {
+        $firestore = $this->getFirestore();
+        if (!$firestore) return false;
+
+        try {
+            $result = $firestore->createDocument('password_resets', [
+                'email' => $email,
+                'token' => $token,
+                'created_at' => (new \DateTime())->format('Y-m-d\TH:i:s\Z'),
+            ], $token);
+
+            return $result !== null;
+        } catch (\Exception $e) {
+            \Log::error('storePasswordResetToken error: ' . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Look up a password reset token and validate it has not expired (1 hour).
+     *
+     * @param string $token
+     * @return array|null Token data with email, or null if invalid/expired
+     */
+    public function getPasswordResetToken(string $token): ?array
+    {
+        $firestore = $this->getFirestore();
+        if (!$firestore) return null;
+
+        try {
+            $doc = $firestore->get("password_resets/{$token}");
+
+            if (!$doc || !isset($doc['fields'])) {
+                return null;
+            }
+
+            $fields = $doc['fields'];
+            $email = $fields['email']['stringValue'] ?? null;
+            $createdAt = $fields['created_at']['stringValue'] ?? null;
+
+            if (!$email || !$createdAt) {
+                return null;
+            }
+
+            // Check expiration (1 hour)
+            $createdTime = new \DateTime($createdAt);
+            $now = new \DateTime();
+            $diff = $now->getTimestamp() - $createdTime->getTimestamp();
+
+            if ($diff > 3600) {
+                // Token expired — clean up
+                $this->deletePasswordResetToken($token);
+                return null;
+            }
+
+            return [
+                'email' => $email,
+                'token' => $token,
+                'created_at' => $createdAt,
+            ];
+        } catch (\Exception $e) {
+            \Log::error('getPasswordResetToken error: ' . $e->getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Delete a password reset token after use.
+     *
+     * @param string $token
+     * @return bool
+     */
+    public function deletePasswordResetToken(string $token): bool
+    {
+        $firestore = $this->getFirestore();
+        if (!$firestore) return false;
+
+        try {
+            return $firestore->deleteDocument("password_resets/{$token}");
+        } catch (\Exception $e) {
+            \Log::error('deletePasswordResetToken error: ' . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Update a user's password by email.
+     * Finds the user by email and updates their password_hash field.
+     *
+     * @param string $email
+     * @param string $newPassword Plain text password to hash
+     * @return bool
+     */
+    public function updateUserPassword(string $email, string $newPassword): bool
+    {
+        $firestore = $this->getFirestore();
+        if (!$firestore) return false;
+
+        try {
+            $user = $this->getUserByEmail($email);
+
+            if (!$user || !isset($user['id'])) {
+                return false;
+            }
+
+            $result = $firestore->patch("users/{$user['id']}", [
+                'password_hash' => password_hash($newPassword, PASSWORD_BCRYPT),
+            ], ['password_hash']);
+
+            return $result !== null;
+        } catch (\Exception $e) {
+            \Log::error('updateUserPassword error: ' . $e->getMessage());
+            return false;
+        }
+    }
+
+    // ─── Audit Logging ────────────────────────────────────────────────────
+
+    /**
+     * Log an activity to the audit_logs Firestore collection.
+     *
+     * @param string      $action   Dot-notation action identifier (e.g. "hospital.approved")
+     * @param array       $details  Contextual key-value pairs
+     * @param string|null $userId   Override user ID (defaults to session)
+     * @param string|null $userName Override user name (defaults to session)
+     * @return string|null  The created document ID, or null on failure
+     */
+    public function logActivity(string $action, array $details = [], ?string $userId = null, ?string $userName = null): ?string
+    {
+        $firestore = $this->getFirestore();
+        if (!$firestore) {
+            return null;
+        }
+
+        try {
+            $fields = [
+                'action'     => $action,
+                'details'    => $details,
+                'user_id'    => $userId ?? \Session::get('firebase_user_id', ''),
+                'user_name'  => $userName ?? \Session::get('firebase_user_name', ''),
+                'user_role'  => \Session::get('firebase_user_role', ''),
+                'ip_address' => request()->ip() ?? '',
+                'user_agent' => request()->userAgent() ?? '',
+                'timestamp'  => (new \DateTime())->format('Y-m-d\TH:i:s\Z'),
+            ];
+
+            $result = $firestore->createDocument('audit_logs', $fields);
+
+            if ($result && isset($result['name'])) {
+                return basename($result['name']);
+            }
+
+            return null;
+        } catch (\Exception $e) {
+            \Log::error('Audit log error: ' . $e->getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Fetch audit logs with optional filters.
+     *
+     * @param array $filters  Optional keys: action, user_id, date_from, date_to
+     * @return array
+     */
+    public function getAuditLogs(array $filters = []): array
+    {
+        $firestore = $this->getFirestore();
+        if (!$firestore) {
+            return [];
+        }
+
+        try {
+            $query = $firestore->collection('audit_logs');
+
+            if (!empty($filters['action'])) {
+                $query = $query->where('action', '==', $filters['action']);
+            }
+
+            if (!empty($filters['user_id'])) {
+                $query = $query->where('user_id', '==', $filters['user_id']);
+            }
+
+            if (!empty($filters['date_from'])) {
+                $query = $query->where('timestamp', '>=', $filters['date_from'] . 'T00:00:00Z');
+            }
+
+            if (!empty($filters['date_to'])) {
+                $query = $query->where('timestamp', '<=', $filters['date_to'] . 'T23:59:59Z');
+            }
+
+            $query = $query->orderBy('timestamp', 'DESC')->limit(100);
+
+            $documents = $query->documents();
+
+            $logs = [];
+            foreach ($documents as $doc) {
+                if ($doc->exists()) {
+                    $data = $doc->data();
+                    $data['id'] = $doc->id();
+                    $logs[] = $data;
+                }
+            }
+
+            return $logs;
+        } catch (\Exception $e) {
+            \Log::error('Fetch audit logs error: ' . $e->getMessage());
+            return [];
+        }
+    }
+
+    /**
+     * Fetch a single audit log entry by ID.
+     *
+     * @param string $id
+     * @return array|null
+     */
+    public function getAuditLogById(string $id): ?array
+    {
+        $firestore = $this->getFirestore();
+        if (!$firestore) {
+            return null;
+        }
+
+        try {
+            $doc = $firestore->get("audit_logs/{$id}");
+            if (!$doc) {
+                return null;
+            }
+
+            $parsed = (new \App\Services\FirestoreDocument($doc))->data();
+            $parsed['id'] = $id;
+            return $parsed;
+        } catch (\Exception $e) {
+            \Log::error('Fetch audit log by ID error: ' . $e->getMessage());
+            return null;
+        }
+    }
+
+    // ─── Financial Dashboard Methods ────────────────────────────────────
+
+    /**
+     * Get financial statistics from bookings collection.
+     *
+     * Queries confirmed/completed bookings and calculates revenue metrics
+     * based on doctor consultation fees and payment statuses.
+     *
+     * @param array $filters Optional filters: date_from, date_to, clinic_id
+     * @return array Financial stats including revenue breakdowns and daily data
+     */
+    public function getFinancialStats(array $filters = []): array
+    {
+        $cacheKey = 'financial_stats_' . md5(json_encode($filters));
+        $cached = Cache::get($cacheKey);
+        if ($cached !== null) {
+            return $cached;
+        }
+
+        $dateFrom = $filters['date_from'] ?? date('Y-m-01');
+        $dateTo = $filters['date_to'] ?? date('Y-m-d');
+        $filterClinicId = $filters['clinic_id'] ?? null;
+
+        $defaultStats = [
+            'total_revenue' => 0,
+            'cash_revenue' => 0,
+            'online_revenue' => 0,
+            'waived_count' => 0,
+            'total_transactions' => 0,
+            'avg_transaction_value' => 0,
+            'daily_breakdown' => [],
+            'recent_transactions' => [],
+        ];
+
+        if (!$this->firestoreClient) {
+            return $defaultStats;
+        }
+
+        try {
+            // Fetch all required collections using cached methods
+            $allBookings = $this->getBookingsRaw();
+            $allDoctors = $this->getDoctorsRaw();
+            $allClinics = $this->getClinicsRaw();
+
+            // Build doctor fee lookup: doctor_id => consultation_fee
+            $doctorFees = [];
+            $doctorNames = [];
+            foreach ($allDoctors as $doc) {
+                if (!$doc->exists()) continue;
+                $dData = $doc->data();
+                $doctorFees[$doc->id()] = (float) ($dData['consultation_fee'] ?? 0);
+                $doctorNames[$doc->id()] = $this->getLocalizedField($dData, 'name', 'Unknown Doctor');
+            }
+
+            // Build clinic name lookup: clinic_id => name
+            $clinicNames = [];
+            foreach ($allClinics as $doc) {
+                if (!$doc->exists()) continue;
+                $cData = $doc->data();
+                $clinicNames[$doc->id()] = $this->getLocalizedField($cData, 'name', 'Unknown Clinic');
+            }
+
+            // Build patient name lookup from bookings (denormalized) + lazy fetch
+            $patientNames = [];
+
+            $totalRevenue = 0;
+            $cashRevenue = 0;
+            $onlineRevenue = 0;
+            $waivedCount = 0;
+            $totalTransactions = 0;
+            $dailyBreakdown = [];
+            $recentTransactions = [];
+
+            $confirmedStatuses = ['confirmed', 'completed', 'arrived'];
+
+            foreach ($allBookings as $document) {
+                if (!$document->exists()) continue;
+                $data = $document->data();
+
+                $status = $data['status'] ?? '';
+                if (!in_array($status, $confirmedStatuses)) continue;
+
+                // Extract booking date
+                $bookingDate = null;
+                if (isset($data['scheduled_date'])) {
+                    $sd = $data['scheduled_date'];
+                    if ($sd instanceof \Google\Cloud\Core\Timestamp) {
+                        $bookingDate = $sd->get()->format('Y-m-d');
+                    } elseif (is_string($sd)) {
+                        $bookingDate = substr($sd, 0, 10);
+                    }
+                }
+
+                if (!$bookingDate) continue;
+
+                // Apply date range filter
+                if ($bookingDate < $dateFrom || $bookingDate > $dateTo) continue;
+
+                // Apply clinic filter
+                $clinicId = $data['clinic_id'] ?? null;
+                if ($filterClinicId && $clinicId !== $filterClinicId) continue;
+
+                $paymentStatus = $data['payment_status'] ?? 'unpaid';
+                $doctorId = $data['doctor_id'] ?? null;
+                $fee = $doctorId ? ($doctorFees[$doctorId] ?? 0) : 0;
+
+                // Initialize daily bucket
+                if (!isset($dailyBreakdown[$bookingDate])) {
+                    $dailyBreakdown[$bookingDate] = [
+                        'total' => 0,
+                        'cash' => 0,
+                        'online' => 0,
+                        'waived' => 0,
+                    ];
+                }
+
+                if ($paymentStatus === 'waived_followup') {
+                    $waivedCount++;
+                    $dailyBreakdown[$bookingDate]['waived']++;
+                } else if (in_array($paymentStatus, ['cash', 'stripe', 'paid', 'pay_on_arrival'])) {
+                    $totalRevenue += $fee;
+                    $totalTransactions++;
+                    $dailyBreakdown[$bookingDate]['total'] += $fee;
+
+                    if ($paymentStatus === 'cash' || $paymentStatus === 'pay_on_arrival') {
+                        $cashRevenue += $fee;
+                        $dailyBreakdown[$bookingDate]['cash'] += $fee;
+                    } elseif ($paymentStatus === 'stripe' || $paymentStatus === 'paid') {
+                        $onlineRevenue += $fee;
+                        $dailyBreakdown[$bookingDate]['online'] += $fee;
+                    }
+
+                    // Collect recent transactions (we'll sort and limit later)
+                    $patientId = $data['patient_id'] ?? null;
+                    $patientName = $data['patient_name'] ?? null;
+                    if (!$patientName && $patientId) {
+                        if (!isset($patientNames[$patientId])) {
+                            $patient = $this->getPatientDetails($patientId);
+                            $patientNames[$patientId] = $patient['name'] ?? 'Unknown Patient';
+                        }
+                        $patientName = $patientNames[$patientId];
+                    }
+
+                    $recentTransactions[] = [
+                        'id' => $document->id(),
+                        'date' => $bookingDate,
+                        'patient' => $patientName ?? 'Unknown Patient',
+                        'doctor' => $doctorId ? ($doctorNames[$doctorId] ?? 'Unknown Doctor') : 'Unknown Doctor',
+                        'clinic' => $clinicId ? ($clinicNames[$clinicId] ?? 'Unknown Clinic') : 'Unknown Clinic',
+                        'amount' => $fee,
+                        'payment_status' => $paymentStatus,
+                        'status' => $status,
+                        'created_at' => $data['created_at'] ?? null,
+                    ];
+                }
+            }
+
+            // Sort daily breakdown by date
+            ksort($dailyBreakdown);
+
+            // Sort recent transactions by date descending, limit to 20
+            usort($recentTransactions, function ($a, $b) {
+                return ($b['created_at'] ?? '') <=> ($a['created_at'] ?? '');
+            });
+            $recentTransactions = array_slice($recentTransactions, 0, 20);
+
+            $avgTransactionValue = $totalTransactions > 0
+                ? round($totalRevenue / $totalTransactions, 2)
+                : 0;
+
+            $result = [
+                'total_revenue' => $totalRevenue,
+                'cash_revenue' => $cashRevenue,
+                'online_revenue' => $onlineRevenue,
+                'waived_count' => $waivedCount,
+                'total_transactions' => $totalTransactions,
+                'avg_transaction_value' => $avgTransactionValue,
+                'daily_breakdown' => $dailyBreakdown,
+                'recent_transactions' => $recentTransactions,
+            ];
+
+            // Cache for 5 minutes
+            Cache::put($cacheKey, $result, 300);
+
+            return $result;
+        } catch (\Exception $e) {
+            \Log::error('getFinancialStats error: ' . $e->getMessage());
+            return $defaultStats;
+        }
+    }
+
+    // ─── Clinic Holiday Methods ─────────────────────────────────────────
+
+    /**
+     * Get all holidays for a clinic from subcollection clinics/{clinicId}/holidays.
+     * Cached for 10 minutes.
+     *
+     * @param string $clinicId
+     * @return array Array of holiday data with id, date, name, name_en, is_recurring, created_at
+     */
+    public function getClinicHolidays(string $clinicId): array
+    {
+        $firestore = $this->getFirestore();
+        if (!$firestore) {
+            return [];
+        }
+
+        $cacheKey = "clinic_holidays_{$clinicId}";
+
+        return Cache::remember($cacheKey, 600, function () use ($firestore, $clinicId) {
+            try {
+                $docs = $firestore->collection("clinics/{$clinicId}/holidays")->documents();
+                $holidays = [];
+
+                foreach ($docs as $doc) {
+                    if (!$doc->exists()) continue;
+                    $data = $doc->data();
+                    $data['id'] = $doc->id();
+                    $holidays[] = $data;
+                }
+
+                // Sort by date ascending
+                usort($holidays, function ($a, $b) {
+                    return ($a['date'] ?? '') <=> ($b['date'] ?? '');
+                });
+
+                return $holidays;
+            } catch (\Exception $e) {
+                \Log::error("getClinicHolidays error for clinic {$clinicId}: " . $e->getMessage());
+                return [];
+            }
+        });
+    }
+
+    /**
+     * Add a holiday to the clinic's holidays subcollection.
+     *
+     * @param string $clinicId
+     * @param array $data {date, name, name_en, is_recurring}
+     * @return string|null The new holiday document ID
+     */
+    public function addClinicHoliday(string $clinicId, array $data): ?string
+    {
+        $firestore = $this->getFirestore();
+        if (!$firestore) {
+            return null;
+        }
+
+        try {
+            $fields = [
+                'date' => $data['date'],
+                'name' => $data['name'] ?? '',
+                'name_en' => $data['name_en'] ?? '',
+                'is_recurring' => (bool)($data['is_recurring'] ?? false),
+                'created_at' => (new \DateTime())->format('Y-m-d\TH:i:s\Z'),
+            ];
+
+            $result = $firestore->createDocument("clinics/{$clinicId}/holidays", $fields);
+            if ($result && isset($result['name'])) {
+                // Invalidate cache
+                Cache::forget("clinic_holidays_{$clinicId}");
+                return basename($result['name']);
+            }
+            return null;
+        } catch (\Exception $e) {
+            \Log::error("addClinicHoliday error for clinic {$clinicId}: " . $e->getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Delete a holiday from the clinic's holidays subcollection.
+     *
+     * @param string $clinicId
+     * @param string $holidayId
+     * @return bool
+     */
+    public function deleteClinicHoliday(string $clinicId, string $holidayId): bool
+    {
+        $firestore = $this->getFirestore();
+        if (!$firestore) {
+            return false;
+        }
+
+        try {
+            $result = $firestore->deleteDocument("clinics/{$clinicId}/holidays/{$holidayId}");
+            if ($result) {
+                // Invalidate cache
+                Cache::forget("clinic_holidays_{$clinicId}");
+            }
+            return $result;
+        } catch (\Exception $e) {
+            \Log::error("deleteClinicHoliday error for clinic {$clinicId}: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Check if a specific date is a holiday for the clinic.
+     * Checks both exact date match and recurring match (month-day).
+     *
+     * @param string $clinicId
+     * @param string $date Y-m-d format
+     * @return bool
+     */
+    public function isClinicHoliday(string $clinicId, string $date): bool
+    {
+        try {
+            $holidays = $this->getClinicHolidays($clinicId);
+            $checkMonthDay = date('m-d', strtotime($date));
+
+            foreach ($holidays as $holiday) {
+                $holidayDate = $holiday['date'] ?? '';
+                $isRecurring = (bool)($holiday['is_recurring'] ?? false);
+
+                // Exact date match
+                if ($holidayDate === $date) {
+                    return true;
+                }
+
+                // Recurring: match on month-day
+                if ($isRecurring && !empty($holidayDate)) {
+                    $holidayMonthDay = date('m-d', strtotime($holidayDate));
+                    if ($holidayMonthDay === $checkMonthDay) {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        } catch (\Exception $e) {
+            \Log::error("isClinicHoliday error: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    // ─── Chart Data Methods ──────────────────────────────────────────────
+
+    /**
+     * Get bookings for a date range, optionally filtered by clinic.
+     * Uses Cache for 5-minute caching to reduce Firestore reads.
+     *
+     * @param string $dateFrom Start date (Y-m-d)
+     * @param string $dateTo End date (Y-m-d)
+     * @param string|null $clinicId Optional clinic filter
+     * @return array Array of booking data arrays
+     */
+    public function getBookingsForDateRange(string $dateFrom, string $dateTo, ?string $clinicId = null): array
+    {
+        $cacheKey = "bookings_date_range_{$dateFrom}_{$dateTo}_" . ($clinicId ?? 'all');
+
+        $cached = Cache::get($cacheKey);
+        if ($cached !== null) {
+            return $cached;
+        }
+
+        $firestore = $this->getFirestore();
+        if (!$firestore) {
+            return [];
+        }
+
+        try {
+            $allBookings = $this->getBookingsRaw();
+            $results = [];
+
+            foreach ($allBookings as $doc) {
+                if (!$doc->exists()) continue;
+                $data = $doc->data();
+
+                // Filter by clinic if specified
+                if ($clinicId && ($data['clinic_id'] ?? null) !== $clinicId) {
+                    continue;
+                }
+
+                // Extract scheduled_date
+                $bookingDate = null;
+                if (isset($data['scheduled_date'])) {
+                    $sd = $data['scheduled_date'];
+                    if ($sd instanceof \Google\Cloud\Core\Timestamp) {
+                        $bookingDate = $sd->get()->format('Y-m-d');
+                    } elseif (is_string($sd)) {
+                        $bookingDate = substr($sd, 0, 10);
+                    }
+                }
+
+                if ($bookingDate && $bookingDate >= $dateFrom && $bookingDate <= $dateTo) {
+                    $results[] = [
+                        'id' => $doc->id(),
+                        'status' => $data['status'] ?? 'pending',
+                        'scheduled_date' => $bookingDate,
+                        'clinic_id' => $data['clinic_id'] ?? null,
+                        'doctor_id' => $data['doctor_id'] ?? null,
+                        'doctor_name' => $data['doctor_name'] ?? null,
+                        'patient_id' => $data['patient_id'] ?? null,
+                    ];
+                }
+            }
+
+            Cache::put($cacheKey, $results, 300); // 5 minutes
+
+            return $results;
+        } catch (\Exception $e) {
+            \Log::error('getBookingsForDateRange error: ' . $e->getMessage());
+            return [];
+        }
+    }
+
+    /**
+     * Get doctor utilization data for today.
+     * For each doctor, returns their booking count vs daily capacity.
+     *
+     * @param string|null $clinicId Optional clinic filter
+     * @return array Array of ['name' => string, 'bookings' => int, 'capacity' => int]
+     */
+    public function getDoctorUtilization(?string $clinicId = null): array
+    {
+        $cacheKey = 'doctor_utilization_' . ($clinicId ?? 'all');
+
+        $cached = Cache::get($cacheKey);
+        if ($cached !== null) {
+            return $cached;
+        }
+
+        $firestore = $this->getFirestore();
+        if (!$firestore) {
+            return [];
+        }
+
+        try {
+            $today = date('Y-m-d');
+
+            // Get all doctors
+            $allDoctors = $this->getDoctorsRaw();
+            $doctorMap = []; // doctor_id => ['name' => ..., 'bookings' => 0, 'capacity' => ...]
+
+            foreach ($allDoctors as $dDoc) {
+                if (!$dDoc->exists()) continue;
+                $dData = $dDoc->data();
+                $doctorId = $dDoc->id();
+
+                // Filter by clinic if specified
+                if ($clinicId && ($dData['clinic_id'] ?? null) !== $clinicId) {
+                    continue;
+                }
+
+                // Only include active/available doctors
+                $status = $dData['status'] ?? 'off';
+                if (!in_array($status, ['available', 'active', 'busy', 'on_duty'])) {
+                    continue;
+                }
+
+                $doctorMap[$doctorId] = [
+                    'name' => $this->getLocalizedField($dData, 'name', 'Unknown Doctor'),
+                    'bookings' => 0,
+                    'capacity' => (int) ($dData['daily_capacity'] ?? $dData['max_patients'] ?? 20),
+                ];
+            }
+
+            // Count today's bookings per doctor
+            $allBookings = $this->getBookingsRaw();
+            foreach ($allBookings as $bDoc) {
+                if (!$bDoc->exists()) continue;
+                $bData = $bDoc->data();
+
+                // Extract date
+                $bookingDate = null;
+                if (isset($bData['scheduled_date'])) {
+                    $sd = $bData['scheduled_date'];
+                    if ($sd instanceof \Google\Cloud\Core\Timestamp) {
+                        $bookingDate = $sd->get()->format('Y-m-d');
+                    } elseif (is_string($sd)) {
+                        $bookingDate = substr($sd, 0, 10);
+                    }
+                }
+
+                if ($bookingDate !== $today) continue;
+
+                $doctorId = $bData['doctor_id'] ?? null;
+                if ($doctorId && isset($doctorMap[$doctorId])) {
+                    $doctorMap[$doctorId]['bookings']++;
+                }
+            }
+
+            $results = array_values($doctorMap);
+
+            Cache::put($cacheKey, $results, 300); // 5 minutes
+
+            return $results;
+        } catch (\Exception $e) {
+            \Log::error('getDoctorUtilization error: ' . $e->getMessage());
+            return [];
+        }
+    }
+
+    // ─── Patient Medical History Methods ───
+
+    /**
+     * Update patient document with medical info fields.
+     *
+     * @param string $patientId
+     * @param array $data  Keys: allergies, chronic_conditions, blood_type,
+     *                     emergency_contact_name, emergency_contact_phone,
+     *                     emergency_contact_relation, medical_notes
+     * @return bool
+     */
+    public function updatePatientMedicalInfo(string $patientId, array $data): bool
+    {
+        try {
+            $firestore = $this->getFirestore();
+            if (!$firestore) return false;
+
+            $updates = [];
+
+            // Array fields
+            if (array_key_exists('allergies', $data)) {
+                $updates[] = ['path' => 'allergies', 'value' => is_array($data['allergies']) ? $data['allergies'] : []];
+            }
+            if (array_key_exists('chronic_conditions', $data)) {
+                $updates[] = ['path' => 'chronic_conditions', 'value' => is_array($data['chronic_conditions']) ? $data['chronic_conditions'] : []];
+            }
+
+            // Simple fields
+            $simpleFields = ['blood_type', 'medical_notes'];
+            foreach ($simpleFields as $field) {
+                if (array_key_exists($field, $data)) {
+                    $updates[] = ['path' => $field, 'value' => $data[$field]];
+                }
+            }
+
+            // Emergency contact as nested object
+            if (isset($data['emergency_contact_name']) || isset($data['emergency_contact_phone']) || isset($data['emergency_contact_relation'])) {
+                $updates[] = ['path' => 'emergency_contact', 'value' => [
+                    'name' => $data['emergency_contact_name'] ?? '',
+                    'phone' => $data['emergency_contact_phone'] ?? '',
+                    'relation' => $data['emergency_contact_relation'] ?? '',
+                ]];
+            }
+
+            $updates[] = ['path' => 'updated_at', 'value' => new \DateTime()];
+
+            $firestore->collection('users')->document($patientId)->update($updates);
+
+            // Invalidate patient caches
+            Cache::forget('patients_index');
+
+            return true;
+        } catch (\Exception $e) {
+            \Log::error('Error updating patient medical info: ' . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Get patient visit history (completed bookings).
+     * Queries bookings where patient_id matches AND status is 'completed'.
+     * Joins with doctor name and clinic name. Sorted by date desc. Limit 50. Cache 5 min.
+     *
+     * @param string $patientId
+     * @return array
+     */
+    public function getPatientVisitHistory(string $patientId): array
+    {
+        $cacheKey = "patient_visit_history_{$patientId}";
+        $cached = Cache::get($cacheKey);
+        if ($cached !== null) {
+            return $cached;
+        }
+
+        $firestore = $this->getFirestore();
+        if (!$firestore) return [];
+
+        try {
+            $documents = $this->getBookingsRaw();
+
+            $visits = [];
+            foreach ($documents as $document) {
+                if (!$document->exists()) continue;
+                $data = $document->data();
+
+                if (($data['patient_id'] ?? null) !== $patientId) continue;
+                if (($data['status'] ?? null) !== 'completed') continue;
+
+                // Resolve doctor name
+                $doctorName = $data['doctor_name'] ?? null;
+                if (!$doctorName && !empty($data['doctor_id'])) {
+                    $doctor = $this->getDoctorDetails($data['clinic_id'] ?? '', $data['doctor_id']);
+                    $doctorName = $this->getLocalizedField($doctor, 'name', 'Unknown Doctor');
+                }
+
+                // Resolve clinic name
+                $clinicName = $data['clinic_name'] ?? null;
+                if (!$clinicName && !empty($data['clinic_id'])) {
+                    $clinic = $this->getClinicById($data['clinic_id']);
+                    $clinicName = $this->getLocalizedField($clinic, 'name', 'Unknown Clinic');
+                }
+
+                // Parse date
+                $scheduledDate = $data['scheduled_date'] ?? $data['created_at'] ?? null;
+                if ($scheduledDate instanceof \Google\Cloud\Core\Timestamp) {
+                    $scheduledDate = $scheduledDate->get()->format('Y-m-d H:i');
+                } elseif (is_string($scheduledDate)) {
+                    $scheduledDate = substr($scheduledDate, 0, 16);
+                }
+
+                $visits[] = [
+                    'id' => $document->id(),
+                    'date' => $scheduledDate ?? '-',
+                    'doctor_name' => $doctorName ?? 'Unknown Doctor',
+                    'clinic_name' => $clinicName ?? 'Unknown Clinic',
+                    'status' => $data['status'] ?? 'completed',
+                    'notes' => $data['notes'] ?? '',
+                ];
+            }
+
+            // Sort by date descending
+            usort($visits, function ($a, $b) {
+                return ($b['date'] ?? '') <=> ($a['date'] ?? '');
+            });
+
+            // Limit 50
+            $visits = array_slice($visits, 0, 50);
+
+            Cache::put($cacheKey, $visits, 300);
+            return $visits;
+        } catch (\Exception $e) {
+            \Log::error('getPatientVisitHistory error: ' . $e->getMessage());
+            return [];
+        }
+    }
+
+    /**
+     * Get patient treatment plan history.
+     * Queries treatment_plans where patient_id matches. Returns with doctor names. Cache 5 min.
+     *
+     * @param string $patientId
+     * @return array
+     */
+    public function getPatientTreatmentHistory(string $patientId): array
+    {
+        $cacheKey = "patient_treatment_history_{$patientId}";
+        $cached = Cache::get($cacheKey);
+        if ($cached !== null) {
+            return $cached;
+        }
+
+        $firestore = $this->getFirestore();
+        if (!$firestore) return [];
+
+        try {
+            $query = $firestore->collection('treatment_plans')
+                ->where('patient_id', '=', $patientId);
+
+            $snapshot = $query->documents();
+            $plans = [];
+
+            foreach ($snapshot as $doc) {
+                if (!$doc->exists()) continue;
+                $data = $doc->data();
+                $data['id'] = $doc->id();
+
+                // Resolve doctor name
+                $doctorName = $data['doctor_name'] ?? null;
+                if (!$doctorName && !empty($data['doctor_id'])) {
+                    $doctor = $this->getDoctorDetails($data['clinic_id'] ?? '', $data['doctor_id']);
+                    $doctorName = $this->getLocalizedField($doctor, 'name', 'Unknown Doctor');
+                }
+                $data['doctor_name'] = $doctorName ?? 'Unknown Doctor';
+
+                // Parse dates
+                if (isset($data['created_at']) && $data['created_at'] instanceof \Google\Cloud\Core\Timestamp) {
+                    $data['created_at'] = $data['created_at']->get()->format('Y-m-d H:i');
+                }
+                if (isset($data['updated_at']) && $data['updated_at'] instanceof \Google\Cloud\Core\Timestamp) {
+                    $data['updated_at'] = $data['updated_at']->get()->format('Y-m-d H:i');
+                }
+
+                $plans[] = $data;
+            }
+
+            // Sort by created_at descending
+            usort($plans, function ($a, $b) {
+                return ($b['created_at'] ?? '') <=> ($a['created_at'] ?? '');
+            });
+
+            Cache::put($cacheKey, $plans, 300);
+            return $plans;
+        } catch (\Exception $e) {
+            \Log::error('getPatientTreatmentHistory error: ' . $e->getMessage());
+            return [];
+        }
+    }
+
+    /**
+     * Get patient prescription/medication history.
+     * Queries prescriptions where patient_id matches. Sorted by date desc. Cache 5 min.
+     *
+     * @param string $patientId
+     * @return array
+     */
+    public function getPatientPrescriptionHistory(string $patientId): array
+    {
+        $cacheKey = "patient_prescription_history_{$patientId}";
+        $cached = Cache::get($cacheKey);
+        if ($cached !== null) {
+            return $cached;
+        }
+
+        $firestore = $this->getFirestore();
+        if (!$firestore) return [];
+
+        try {
+            $query = $firestore->collection('prescriptions')
+                ->where('patient_id', '=', $patientId);
+
+            $docs = $query->documents();
+            $prescriptions = [];
+
+            foreach ($docs as $doc) {
+                if (!$doc->exists()) continue;
+                $data = $doc->data();
+                $data['id'] = $doc->id();
+
+                // Resolve doctor name
+                $doctorName = $data['doctor_name'] ?? null;
+                if (!$doctorName && !empty($data['doctor_id'])) {
+                    $doctor = $this->getDoctorDetails($data['clinic_id'] ?? '', $data['doctor_id']);
+                    $doctorName = $this->getLocalizedField($doctor, 'name', 'Unknown Doctor');
+                }
+                $data['doctor_name'] = $doctorName ?? 'Unknown Doctor';
+
+                // Parse dates
+                if (isset($data['created_at']) && $data['created_at'] instanceof \Google\Cloud\Core\Timestamp) {
+                    $data['created_at'] = $data['created_at']->get()->format('Y-m-d H:i');
+                }
+
+                $data['medications_count'] = count($data['medications'] ?? []);
+
+                $prescriptions[] = $data;
+            }
+
+            // Sort by created_at descending
+            usort($prescriptions, function ($a, $b) {
+                return ($b['created_at'] ?? '') <=> ($a['created_at'] ?? '');
+            });
+
+            Cache::put($cacheKey, $prescriptions, 300);
+            return $prescriptions;
+        } catch (\Exception $e) {
+            \Log::error('getPatientPrescriptionHistory error: ' . $e->getMessage());
+            return [];
+        }
+    }
+
+    // ─── Appointment Reminder Methods ───
+
+    /**
+     * Get bookings for a specific date filtered by statuses.
+     * Returns raw booking data with document IDs for reminder processing.
+     *
+     * @param string $date Date in Y-m-d format
+     * @param array $statuses Array of status strings to filter by
+     * @return array Array of booking arrays with 'id' key included
+     */
+    public function getBookingsForDate(string $date, array $statuses = []): array
+    {
+        $firestore = $this->getFirestore();
+        if (!$firestore) return [];
+
+        try {
+            $documents = $this->getBookingsRaw();
+            $results = [];
+
+            foreach ($documents as $document) {
+                if (!$document->exists()) continue;
+
+                $data = $document->data();
+
+                // Match scheduled_date
+                $scheduledDate = $data['scheduled_date'] ?? null;
+                $bookingDate = null;
+
+                if ($scheduledDate instanceof \Google\Cloud\Core\Timestamp) {
+                    $bookingDate = $scheduledDate->get()->format('Y-m-d');
+                } elseif (is_string($scheduledDate)) {
+                    $bookingDate = substr($scheduledDate, 0, 10);
+                }
+
+                if ($bookingDate !== $date) continue;
+
+                // Match status if filter provided
+                if (!empty($statuses)) {
+                    $bookingStatus = $data['status'] ?? null;
+                    if (!in_array($bookingStatus, $statuses)) continue;
+                }
+
+                $data['id'] = $document->id();
+                $results[] = $data;
+            }
+
+            return $results;
+        } catch (\Exception $e) {
+            \Log::error('getBookingsForDate error: ' . $e->getMessage());
+            return [];
+        }
+    }
+
+    /**
+     * Mark a booking as reminder sent.
+     * Sets reminder_sent=true and reminder_sent_at to current timestamp.
+     *
+     * @param string $bookingId
+     * @return bool
+     */
+    public function markReminderSent(string $bookingId): bool
+    {
+        $firestore = $this->getFirestore();
+        if (!$firestore) return false;
+
+        try {
+            $firestore->collection('bookings')->document($bookingId)->update([
+                ['path' => 'reminder_sent', 'value' => true],
+                ['path' => 'reminder_sent_at', 'value' => (new \DateTime())->format('Y-m-d\TH:i:s\Z')],
+            ]);
+
+            $this->invalidateBookingCaches();
+            return true;
+        } catch (\Exception $e) {
+            \Log::error("markReminderSent error for booking {$bookingId}: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    // ─── Reviews / Ratings Methods ───
+
+    /**
+     * Create a review document in the 'reviews' collection.
+     * Also updates the doctor's avg_rating and total_reviews fields.
+     *
+     * @param array $data Review data
+     * @return string|null The new review document ID
+     */
+    public function createReview(array $data): ?string
+    {
+        $firestore = $this->getFirestore();
+        if (!$firestore) return null;
+
+        try {
+            $fields = [
+                'patient_id' => $data['patient_id'] ?? '',
+                'patient_name' => $data['patient_name'] ?? '',
+                'doctor_id' => $data['doctor_id'] ?? '',
+                'doctor_name' => $data['doctor_name'] ?? '',
+                'clinic_id' => $data['clinic_id'] ?? '',
+                'booking_id' => $data['booking_id'] ?? '',
+                'rating' => (int) ($data['rating'] ?? 5),
+                'comment' => $data['comment'] ?? '',
+                'is_visible' => true,
+                'created_at' => (new \DateTime())->format('Y-m-d\TH:i:s\Z'),
+            ];
+
+            $result = $firestore->createDocument('reviews', $fields);
+            $this->invalidateReviewCaches();
+
+            // Update doctor's aggregate rating
+            if (!empty($data['doctor_id']) && !empty($data['clinic_id'])) {
+                $this->updateDoctorRating($data['doctor_id'], $data['clinic_id']);
+            }
+
+            if ($result && isset($result['name'])) {
+                return basename($result['name']);
+            }
+            return null;
+        } catch (\Exception $e) {
+            \Log::error('createReview error: ' . $e->getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Get all visible reviews for a doctor, sorted by date desc. Cached 5 min.
+     *
+     * @param string $doctorId
+     * @return array
+     */
+    public function getReviewsForDoctor(string $doctorId): array
+    {
+        $cacheKey = "reviews_doctor_{$doctorId}";
+
+        return Cache::remember($cacheKey, 300, function () use ($doctorId) {
+            $firestore = $this->getFirestore();
+            if (!$firestore) return [];
+
+            try {
+                $docs = $firestore->collection('reviews')
+                    ->where('doctor_id', '=', $doctorId)
+                    ->where('is_visible', '=', true)
+                    ->documents();
+
+                $reviews = [];
+                foreach ($docs as $doc) {
+                    if (!$doc->exists()) continue;
+                    $data = $doc->data();
+                    $data['id'] = $doc->id();
+                    $reviews[] = $data;
+                }
+
+                // Sort by created_at descending
+                usort($reviews, function ($a, $b) {
+                    return ($b['created_at'] ?? '') <=> ($a['created_at'] ?? '');
+                });
+
+                return $reviews;
+            } catch (\Exception $e) {
+                \Log::error("getReviewsForDoctor error for doctor {$doctorId}: " . $e->getMessage());
+                return [];
+            }
+        });
+    }
+
+    /**
+     * Get all visible reviews for a clinic. Cached 5 min.
+     *
+     * @param string $clinicId
+     * @return array
+     */
+    public function getReviewsForClinic(string $clinicId): array
+    {
+        $cacheKey = "reviews_clinic_{$clinicId}";
+
+        return Cache::remember($cacheKey, 300, function () use ($clinicId) {
+            $firestore = $this->getFirestore();
+            if (!$firestore) return [];
+
+            try {
+                $docs = $firestore->collection('reviews')
+                    ->where('clinic_id', '=', $clinicId)
+                    ->where('is_visible', '=', true)
+                    ->documents();
+
+                $reviews = [];
+                foreach ($docs as $doc) {
+                    if (!$doc->exists()) continue;
+                    $data = $doc->data();
+                    $data['id'] = $doc->id();
+                    $reviews[] = $data;
+                }
+
+                // Sort by created_at descending
+                usort($reviews, function ($a, $b) {
+                    return ($b['created_at'] ?? '') <=> ($a['created_at'] ?? '');
+                });
+
+                return $reviews;
+            } catch (\Exception $e) {
+                \Log::error("getReviewsForClinic error for clinic {$clinicId}: " . $e->getMessage());
+                return [];
+            }
+        });
+    }
+
+    /**
+     * Get all reviews for admin dashboard. Supports filters. Limit 100.
+     *
+     * @param array $filters Optional: doctor_id, clinic_id, rating, date_from, date_to
+     * @return array
+     */
+    public function getAllReviews(array $filters = []): array
+    {
+        $firestore = $this->getFirestore();
+        if (!$firestore) return [];
+
+        try {
+            $docs = $firestore->collection('reviews')->documents();
+            $reviews = [];
+
+            foreach ($docs as $doc) {
+                if (!$doc->exists()) continue;
+                $data = $doc->data();
+                $data['id'] = $doc->id();
+
+                // Apply filters
+                if (!empty($filters['doctor_id']) && ($data['doctor_id'] ?? '') !== $filters['doctor_id']) {
+                    continue;
+                }
+                if (!empty($filters['clinic_id']) && ($data['clinic_id'] ?? '') !== $filters['clinic_id']) {
+                    continue;
+                }
+                if (!empty($filters['rating']) && (int) ($data['rating'] ?? 0) !== (int) $filters['rating']) {
+                    continue;
+                }
+                if (!empty($filters['date_from'])) {
+                    $createdAt = substr($data['created_at'] ?? '', 0, 10);
+                    if ($createdAt < $filters['date_from']) continue;
+                }
+                if (!empty($filters['date_to'])) {
+                    $createdAt = substr($data['created_at'] ?? '', 0, 10);
+                    if ($createdAt > $filters['date_to']) continue;
+                }
+
+                $reviews[] = $data;
+            }
+
+            // Sort by created_at descending
+            usort($reviews, function ($a, $b) {
+                return ($b['created_at'] ?? '') <=> ($a['created_at'] ?? '');
+            });
+
+            // Limit to 100
+            return array_slice($reviews, 0, 100);
+        } catch (\Exception $e) {
+            \Log::error('getAllReviews error: ' . $e->getMessage());
+            return [];
+        }
+    }
+
+    /**
+     * Toggle review visibility (show/hide).
+     *
+     * @param string $reviewId
+     * @param bool $visible
+     * @return bool
+     */
+    public function toggleReviewVisibility(string $reviewId, bool $visible): bool
+    {
+        $firestore = $this->getFirestore();
+        if (!$firestore) return false;
+
+        try {
+            $firestore->collection('reviews')->document($reviewId)->update([
+                ['path' => 'is_visible', 'value' => $visible],
+            ]);
+
+            $this->invalidateReviewCaches();
+            return true;
+        } catch (\Exception $e) {
+            \Log::error("toggleReviewVisibility error for review {$reviewId}: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Recalculate and update the doctor's avg_rating and total_reviews fields.
+     *
+     * @param string $doctorId
+     * @param string $clinicId
+     * @return void
+     */
+    public function updateDoctorRating(string $doctorId, string $clinicId): void
+    {
+        $firestore = $this->getFirestore();
+        if (!$firestore) return;
+
+        try {
+            // Fetch all reviews for this doctor (including hidden for accurate avg)
+            $docs = $firestore->collection('reviews')
+                ->where('doctor_id', '=', $doctorId)
+                ->documents();
+
+            $totalRating = 0;
+            $count = 0;
+
+            foreach ($docs as $doc) {
+                if (!$doc->exists()) continue;
+                $data = $doc->data();
+                $totalRating += (int) ($data['rating'] ?? 0);
+                $count++;
+            }
+
+            $avgRating = $count > 0 ? round($totalRating / $count, 1) : 0;
+
+            // Update the doctor document
+            $firestore->collection('doctors')->document($doctorId)->update([
+                ['path' => 'avg_rating', 'value' => $avgRating],
+                ['path' => 'total_reviews', 'value' => $count],
+            ]);
+
+            $this->invalidateDoctorCaches();
+        } catch (\Exception $e) {
+            \Log::error("updateDoctorRating error for doctor {$doctorId}: " . $e->getMessage());
+        }
+    }
+
+    /**
+     * Check if a patient has already reviewed a specific booking.
+     *
+     * @param string $patientId
+     * @param string $bookingId
+     * @return bool
+     */
+    public function hasPatientReviewed(string $patientId, string $bookingId): bool
+    {
+        $firestore = $this->getFirestore();
+        if (!$firestore) return false;
+
+        try {
+            $docs = $firestore->collection('reviews')
+                ->where('patient_id', '=', $patientId)
+                ->where('booking_id', '=', $bookingId)
+                ->documents();
+
+            foreach ($docs as $doc) {
+                if ($doc->exists()) return true;
+            }
+
+            return false;
+        } catch (\Exception $e) {
+            \Log::error("hasPatientReviewed error: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Invalidate review-related caches.
+     */
+    public function invalidateReviewCaches(): void
+    {
+        $this->forgetCacheByPrefix('reviews_doctor_');
+        $this->forgetCacheByPrefix('reviews_clinic_');
+    }
+
+    // ─── Coupon / Discount Methods ──────────────────────────────────────
+
+    /**
+     * Get cached coupons collection documents.
+     */
+    public function getCouponsRaw(): array
+    {
+        return $this->getCollectionCached('coupons', 300);
+    }
+
+    /**
+     * Invalidate coupon-related caches after writes.
+     */
+    public function invalidateCouponCaches(): void
+    {
+        unset($this->requestCache['coupons']);
+        Cache::forget('firestore:coupons');
+        $this->forgetCacheByPrefix('coupons_');
+    }
+
+    /**
+     * Get all coupons with optional filters.
+     *
+     * @param array $filters Optional: clinic_id, is_active
+     * @return array
+     */
+    public function getCoupons(array $filters = []): array
+    {
+        $firestore = $this->getFirestore();
+        if (!$firestore) return [];
+
+        try {
+            $cacheKey = 'coupons_list_' . md5(json_encode($filters));
+            return Cache::remember($cacheKey, 300, function () use ($filters) {
+                $documents = $this->getCouponsRaw();
+                $coupons = [];
+
+                foreach ($documents as $doc) {
+                    if (!$doc->exists()) continue;
+                    $data = $doc->data();
+                    $data['id'] = $doc->id();
+
+                    // Apply filters
+                    if (isset($filters['clinic_id']) && $filters['clinic_id']) {
+                        $couponClinic = $data['clinic_id'] ?? null;
+                        if ($couponClinic && $couponClinic !== $filters['clinic_id']) continue;
+                    }
+
+                    if (isset($filters['is_active'])) {
+                        if (($data['is_active'] ?? false) !== $filters['is_active']) continue;
+                    }
+
+                    $coupons[] = $data;
+                }
+
+                // Sort by created_at descending
+                usort($coupons, function ($a, $b) {
+                    return ($b['created_at'] ?? '') <=> ($a['created_at'] ?? '');
+                });
+
+                return $coupons;
+            });
+        } catch (\Exception $e) {
+            \Log::error('getCoupons error: ' . $e->getMessage());
+            return [];
+        }
+    }
+
+    /**
+     * Find a coupon by its code (case-insensitive).
+     *
+     * @param string $code
+     * @return array|null Coupon data with 'id' key, or null
+     */
+    public function getCouponByCode(string $code): ?array
+    {
+        $firestore = $this->getFirestore();
+        if (!$firestore) return null;
+
+        try {
+            $documents = $this->getCouponsRaw();
+            $upperCode = strtoupper(trim($code));
+
+            foreach ($documents as $doc) {
+                if (!$doc->exists()) continue;
+                $data = $doc->data();
+                if (strtoupper($data['code'] ?? '') === $upperCode) {
+                    $data['id'] = $doc->id();
+                    return $data;
+                }
+            }
+
+            return null;
+        } catch (\Exception $e) {
+            \Log::error('getCouponByCode error: ' . $e->getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Create a new coupon document. Validates code uniqueness.
+     *
+     * @param array $data
+     * @return string|null Document ID on success, null on failure
+     * @throws \Exception if code already exists
+     */
+    public function createCoupon(array $data): ?string
+    {
+        $firestore = $this->getFirestore();
+        if (!$firestore) return null;
+
+        try {
+            // Validate code uniqueness
+            $code = strtoupper(trim($data['code'] ?? ''));
+            $existing = $this->getCouponByCode($code);
+            if ($existing) {
+                throw new \Exception('Coupon code already exists');
+            }
+
+            $now = (new \DateTime())->format('Y-m-d\TH:i:s\Z');
+
+            $fields = [
+                'code' => $code,
+                'discount_type' => $data['discount_type'] ?? 'percentage',
+                'discount_value' => (float)($data['discount_value'] ?? 0),
+                'valid_from' => $data['valid_from'] ?? date('Y-m-d'),
+                'valid_to' => $data['valid_to'] ?? date('Y-m-d', strtotime('+30 days')),
+                'max_uses' => (int)($data['max_uses'] ?? 0),
+                'current_uses' => 0,
+                'clinic_id' => !empty($data['clinic_id']) ? $data['clinic_id'] : null,
+                'is_active' => (bool)($data['is_active'] ?? true),
+                'created_by' => $data['created_by'] ?? null,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ];
+
+            $result = $firestore->createDocument('coupons', $fields);
+            $this->invalidateCouponCaches();
+
+            if ($result && isset($result['name'])) {
+                return basename($result['name']);
+            }
+            return null;
+        } catch (\Exception $e) {
+            \Log::error('createCoupon error: ' . $e->getMessage());
+            throw $e;
+        }
+    }
+
+    /**
+     * Update coupon fields.
+     *
+     * @param string $id Coupon document ID
+     * @param array $data Fields to update
+     * @return bool
+     */
+    public function updateCoupon(string $id, array $data): bool
+    {
+        $firestore = $this->getFirestore();
+        if (!$firestore) return false;
+
+        try {
+            $updates = [];
+            $allowedFields = ['code', 'discount_type', 'discount_value', 'valid_from', 'valid_to', 'max_uses', 'clinic_id', 'is_active'];
+
+            foreach ($allowedFields as $field) {
+                if (array_key_exists($field, $data)) {
+                    $value = $data[$field];
+                    if ($field === 'code') $value = strtoupper(trim($value));
+                    if ($field === 'discount_value') $value = (float)$value;
+                    if ($field === 'max_uses') $value = (int)$value;
+                    if ($field === 'is_active') $value = (bool)$value;
+                    if ($field === 'clinic_id') $value = !empty($value) ? $value : null;
+                    $updates[] = ['path' => $field, 'value' => $value];
+                }
+            }
+
+            $updates[] = ['path' => 'updated_at', 'value' => (new \DateTime())->format('Y-m-d\TH:i:s\Z')];
+
+            $firestore->collection('coupons')->document($id)->update($updates);
+            $this->invalidateCouponCaches();
+            return true;
+        } catch (\Exception $e) {
+            \Log::error('updateCoupon error: ' . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Delete a coupon document.
+     *
+     * @param string $id Coupon document ID
+     * @return bool
+     */
+    public function deleteCoupon(string $id): bool
+    {
+        $firestore = $this->getFirestore();
+        if (!$firestore) return false;
+
+        try {
+            $result = $firestore->deleteDocument("coupons/{$id}");
+            $this->invalidateCouponCaches();
+            return $result;
+        } catch (\Exception $e) {
+            \Log::error('deleteCoupon error: ' . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Validate a coupon: exists, active, date range, max uses, clinic match.
+     *
+     * @param string $code
+     * @param string|null $clinicId
+     * @return array ['valid' => bool, 'coupon' => array|null, 'message' => string|null]
+     */
+    public function validateCoupon(string $code, ?string $clinicId = null): array
+    {
+        $coupon = $this->getCouponByCode($code);
+
+        if (!$coupon) {
+            return ['valid' => false, 'coupon' => null, 'message' => __('messages.invalid_coupon')];
+        }
+
+        if (!($coupon['is_active'] ?? false)) {
+            return ['valid' => false, 'coupon' => null, 'message' => __('messages.invalid_coupon')];
+        }
+
+        $today = date('Y-m-d');
+        $validFrom = $coupon['valid_from'] ?? '';
+        $validTo = $coupon['valid_to'] ?? '';
+
+        if ($validFrom && $today < $validFrom) {
+            return ['valid' => false, 'coupon' => null, 'message' => __('messages.invalid_coupon')];
+        }
+
+        if ($validTo && $today > $validTo) {
+            return ['valid' => false, 'coupon' => null, 'message' => __('messages.coupon_expired')];
+        }
+
+        $maxUses = (int)($coupon['max_uses'] ?? 0);
+        $currentUses = (int)($coupon['current_uses'] ?? 0);
+        if ($maxUses > 0 && $currentUses >= $maxUses) {
+            return ['valid' => false, 'coupon' => null, 'message' => __('messages.coupon_max_uses_reached')];
+        }
+
+        // Check clinic restriction
+        $couponClinicId = $coupon['clinic_id'] ?? null;
+        if ($couponClinicId && $clinicId && $couponClinicId !== $clinicId) {
+            return ['valid' => false, 'coupon' => null, 'message' => __('messages.coupon_not_for_clinic')];
+        }
+
+        return ['valid' => true, 'coupon' => $coupon, 'message' => null];
+    }
+
+    /**
+     * Increment current_uses for a coupon by 1.
+     *
+     * @param string $couponId
+     * @return bool
+     */
+    public function applyCoupon(string $couponId): bool
+    {
+        $firestore = $this->getFirestore();
+        if (!$firestore) return false;
+
+        try {
+            $doc = $firestore->collection('coupons')->document($couponId)->snapshot();
+            if (!$doc->exists()) return false;
+
+            $currentUses = (int)($doc->data()['current_uses'] ?? 0);
+
+            $firestore->collection('coupons')->document($couponId)->update([
+                ['path' => 'current_uses', 'value' => $currentUses + 1],
+                ['path' => 'updated_at', 'value' => (new \DateTime())->format('Y-m-d\TH:i:s\Z')],
+            ]);
+
+            $this->invalidateCouponCaches();
+            return true;
+        } catch (\Exception $e) {
+            \Log::error('applyCoupon error: ' . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Validate coupon and calculate discounted price.
+     *
+     * @param string $couponCode
+     * @param float $originalFee
+     * @param string|null $clinicId
+     * @return array ['success' => bool, 'original' => float, 'discount' => float, 'final' => float, 'coupon_data' => array|null, 'message' => string|null]
+     */
+    public function calculateDiscount(string $couponCode, float $originalFee, ?string $clinicId = null): array
+    {
+        $validation = $this->validateCoupon($couponCode, $clinicId);
+
+        if (!$validation['valid']) {
+            return [
+                'success' => false,
+                'original' => $originalFee,
+                'discount' => 0,
+                'final' => $originalFee,
+                'coupon_data' => null,
+                'message' => $validation['message'],
+            ];
+        }
+
+        $coupon = $validation['coupon'];
+        $discountType = $coupon['discount_type'] ?? 'percentage';
+        $discountValue = (float)($coupon['discount_value'] ?? 0);
+
+        if ($discountType === 'percentage') {
+            $discountAmount = round($originalFee * ($discountValue / 100), 2);
+        } else {
+            $discountAmount = min($discountValue, $originalFee);
+        }
+
+        $finalPrice = max(0, round($originalFee - $discountAmount, 2));
+
+        return [
+            'success' => true,
+            'original' => $originalFee,
+            'discount' => $discountAmount,
+            'final' => $finalPrice,
+            'coupon_data' => $coupon,
+            'message' => __('messages.discount_applied'),
+        ];
     }
 }

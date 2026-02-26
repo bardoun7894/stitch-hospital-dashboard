@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\MobileProfileController;
 use App\Http\Controllers\Api\MobileNotificationsController;
 use App\Http\Controllers\Api\MobileTreatmentPlanController;
 use App\Http\Controllers\Api\MobileMedicationController;
+use App\Http\Controllers\Api\MobileReviewsController;
 
 /*
 |--------------------------------------------------------------------------
@@ -101,6 +102,10 @@ Route::prefix('mobile')->middleware(['firebase.auth', 'throttle:api'])->group(fu
             ->name('mobile.bookings.confirm-payment');
     });
 
+    // Coupons
+    Route::post('/coupons/validate', [MobileBookingController::class, 'validateCoupon'])
+        ->name('mobile.coupons.validate');
+
     // Queue
     Route::get('/queue/status', [MobileQueueController::class, 'getStatus'])
         ->name('mobile.queue.status');
@@ -124,6 +129,12 @@ Route::prefix('mobile')->middleware(['firebase.auth', 'throttle:api'])->group(fu
         ->name('mobile.medications.toggle-reminder');
     Route::post('/medications/{id}/snooze', [MobileMedicationController::class, 'snoozeReminder'])
         ->name('mobile.medications.snooze');
+
+    // Reviews
+    Route::post('/reviews', [MobileReviewsController::class, 'store'])
+        ->name('mobile.reviews.store');
+    Route::get('/doctors/{doctorId}/reviews', [MobileReviewsController::class, 'doctorReviews'])
+        ->name('mobile.doctors.reviews');
 
     // Profile
     Route::post('/profile/bootstrap', [MobileProfileController::class, 'bootstrap'])

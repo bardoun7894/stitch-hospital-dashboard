@@ -117,6 +117,7 @@ class MobileBookingController extends Controller
             'family_member_ids' => 'nullable|array',
             'family_member_ids.*' => 'string',
             'includes_self' => 'nullable|boolean',
+            'coupon_code' => 'nullable|string|max:50',
         ]);
 
         try {
@@ -148,7 +149,29 @@ class MobileBookingController extends Controller
             $isFollowup = $followupCheck['eligible'];
             $treatmentPlanId = $isFollowup ? ($followupCheck['plan']['id'] ?? "{$validated['doctor_id']}_{$userId}") : null;
 
-            $bookingId = $this->firebaseService->createMobileBooking([
+            // Handle coupon discount
+            $couponCode = null;
+            $discountAmount = 0;
+            $couponData = null;
+            if (!empty($validated['coupon_code']) && !$isFollowup) {
+                $consultationFee = (float)($doctor['consultation_fee'] ?? 0);
+                if ($consultationFee > 0) {
+                    $discountResult = $this->firebaseService->calculateDiscount(
+                        $validated['coupon_code'],
+                        $consultationFee,
+                        $validated['clinic_id']
+                    );
+                    if ($discountResult['success']) {
+                        $couponCode = $validated['coupon_code'];
+                        $discountAmount = $discountResult['discount'];
+                        $couponData = $discountResult['coupon_data'];
+                        // Apply coupon (increment usage)
+                        $this->firebaseService->applyCoupon($couponData['id']);
+                    }
+                }
+            }
+
+            $bookingData = [
                 'patient_id' => $userId,
                 'clinic_id' => $validated['clinic_id'],
                 'doctor_id' => $validated['doctor_id'],
@@ -162,20 +185,35 @@ class MobileBookingController extends Controller
                 'payment_status' => $isFollowup ? 'waived_followup' : 'unpaid',
                 'is_followup' => $isFollowup,
                 'treatment_plan_id' => $treatmentPlanId,
-            ]);
+            ];
+
+            // Add coupon data to booking if applied
+            if ($couponCode) {
+                $bookingData['coupon_code'] = strtoupper($couponCode);
+                $bookingData['discount_amount'] = $discountAmount;
+            }
+
+            $bookingId = $this->firebaseService->createMobileBooking($bookingData);
 
             $paymentNote = $isFollowup
                 ? null
                 : 'الدفع عند الوصول - لن يتم عرض رقم الدور الا بعد تأكيد الدفع';
 
+            $responseData = [
+                'booking_id' => $bookingId,
+                'is_followup' => $isFollowup,
+                'followup_reason' => $isFollowup ? null : ($followupCheck['reason'] ?? null),
+                'payment_note' => $paymentNote,
+            ];
+
+            if ($couponCode) {
+                $responseData['coupon_applied'] = true;
+                $responseData['discount_amount'] = $discountAmount;
+            }
+
             return response()->json([
                 'success' => true,
-                'data' => [
-                    'booking_id' => $bookingId,
-                    'is_followup' => $isFollowup,
-                    'followup_reason' => $isFollowup ? null : ($followupCheck['reason'] ?? null),
-                    'payment_note' => $paymentNote,
-                ],
+                'data' => $responseData,
                 'message' => __('messages.booking_created')
             ], 201);
         } catch (\Throwable $e) {
@@ -460,6 +498,84 @@ class MobileBookingController extends Controller
             ], 500);
         }
     }
+    /**
+     * Validate a coupon code for a given clinic.
+     * POST /api/mobile/coupons/validate
+     */
+    public function validateCoupon(Request $request): JsonResponse
+    {
+        $userId = $this->resolveUserId($request);
+        if (!$userId) {
+            return response()->json([
+                'success' => false,
+                'message' => __('messages.authentication_failed')
+            ], 401);
+        }
+
+        $validated = $request->validate([
+            'code' => 'required|string|max:50',
+            'clinic_id' => 'nullable|string',
+            'doctor_id' => 'nullable|string',
+        ]);
+
+        try {
+            $validation = $this->firebaseService->validateCoupon(
+                $validated['code'],
+                $validated['clinic_id'] ?? null
+            );
+
+            if (!$validation['valid']) {
+                return response()->json([
+                    'success' => true,
+                    'data' => [
+                        'valid' => false,
+                        'message' => $validation['message'],
+                    ]
+                ]);
+            }
+
+            $coupon = $validation['coupon'];
+
+            // If doctor_id provided, calculate discount using consultation_fee
+            $responseData = [
+                'valid' => true,
+                'discount_type' => $coupon['discount_type'] ?? 'percentage',
+                'discount_value' => (float)($coupon['discount_value'] ?? 0),
+            ];
+
+            if (!empty($validated['doctor_id'])) {
+                try {
+                    $doctor = $this->firebaseService->getDoctorById($validated['doctor_id']);
+                    $originalFee = (float)($doctor['consultation_fee'] ?? 0);
+
+                    if ($originalFee > 0) {
+                        $discountResult = $this->firebaseService->calculateDiscount(
+                            $validated['code'],
+                            $originalFee,
+                            $validated['clinic_id'] ?? null
+                        );
+                        $responseData['original_fee'] = $originalFee;
+                        $responseData['discount_amount'] = $discountResult['discount'];
+                        $responseData['discounted_fee'] = $discountResult['final'];
+                    }
+                } catch (\Throwable $e) {
+                    // Non-critical, skip fee calculation
+                }
+            }
+
+            return response()->json([
+                'success' => true,
+                'data' => $responseData,
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('Validate coupon error: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => __('messages.invalid_coupon')
+            ], 500);
+        }
+    }
+
     private function resolveUserId(Request $request): ?string
     {
         $uid = data_get($request->input('firebase_user'), 'uid');

@@ -102,6 +102,26 @@ class LoginController extends Controller
         Session::put('firebase_user_clinic_id', $user['clinic_id'] ?? null);
         Session::put('firebase_user_hospital_id', $user['hospital_id'] ?? null);
 
+        // If doctor role, look up the doctor record and store doctor_id
+        if ($userRole === 'doctor') {
+            $doctorRecord = $this->firebaseService->getDoctorByUserId($user['id']);
+            if ($doctorRecord) {
+                Session::put('firebase_user_doctor_id', $doctorRecord['id']);
+                // Fill clinic_id and hospital_id from doctor record if not set on user
+                if (empty($user['clinic_id']) && !empty($doctorRecord['clinic_id'])) {
+                    Session::put('firebase_user_clinic_id', $doctorRecord['clinic_id']);
+                }
+                if (empty($user['hospital_id']) && !empty($doctorRecord['hospital_id'])) {
+                    Session::put('firebase_user_hospital_id', $doctorRecord['hospital_id']);
+                }
+            }
+        }
+
+        // Audit log: successful login
+        $this->firebaseService->logActivity('login', [
+            'email' => $email,
+        ], $user['id'], $user['name'] ?? 'User');
+
         return redirect()->intended(route('dashboard'));
     }
 
@@ -110,6 +130,11 @@ class LoginController extends Controller
      */
     public function logout(Request $request)
     {
+        // Audit log: logout (before clearing session)
+        $this->firebaseService->logActivity('logout', [
+            'email' => Session::get('firebase_user_email', ''),
+        ]);
+
         Session::forget([
             'firebase_user_id',
             'firebase_user_email',
@@ -117,6 +142,7 @@ class LoginController extends Controller
             'firebase_user_name',
             'firebase_user_clinic_id',
             'firebase_user_hospital_id',
+            'firebase_user_doctor_id',
         ]);
 
         $request->session()->invalidate();

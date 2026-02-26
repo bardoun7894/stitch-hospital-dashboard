@@ -9,13 +9,13 @@
         </a>
         <div>
             <h1 class="text-2xl font-bold text-[#111418] dark:text-white">{{ __('messages.reschedule_booking_title') }}</h1>
-            <p class="text-[#637388] dark:text-[#9ca3af]">{{ __('messages.change_appointment_time') }} {{ $booking['patient_name'] ?? 'Patient' }}</p>
+            <p class="text-[#637388] dark:text-[#9ca3af]">{{ __('messages.change_appointment_time') }} {{ $booking['patient_name'] ?? __('messages.patient_label') }}</p>
         </div>
     </div>
 
     @if(session('error'))
     <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
-        <strong class="font-bold">Error!</strong>
+        <strong class="font-bold">{{ __('messages.error_msg') }}</strong>
         <span class="block sm:inline">{{ session('error') }}</span>
     </div>
     @endif
@@ -30,8 +30,8 @@
                 <div class="flex gap-4">
                      <div class="flex-1">
                         <label class="block text-xs font-medium text-gray-500 uppercase">{{ __('messages.current_appointment') }}</label>
-                        <p class="font-bold text-[#111418] dark:text-white">{{ $booking['doctor_name'] ?? 'Doctor' }}</p>
-                        <p class="text-sm text-blue-600 dark:text-blue-400">{{ $booking['date'] }} at {{ $booking['time'] }}</p>
+                        <p class="font-bold text-[#111418] dark:text-white">{{ $booking['doctor_name'] ?? __('messages.doctor_label') }}</p>
+                        <p class="text-sm text-blue-600 dark:text-blue-400">{{ $booking['date'] }} {{ __('messages.at') ?? 'at' }} {{ $booking['time'] }}</p>
                     </div>
                 </div>
             </div>
@@ -101,12 +101,12 @@
                     });
                     timeSlotSelect.disabled = false;
                 } else {
-                    timeSlotSelect.innerHTML = '<option value="">No slots available</option>';
+                    timeSlotSelect.innerHTML = '<option value="">{{ __('messages.no_slots_available') }}</option>';
                 }
             })
             .catch(error => {
                 console.error('Error fetching slots:', error);
-                timeSlotSelect.innerHTML = '<option value="">Error loading slots</option>';
+                timeSlotSelect.innerHTML = '<option value="">{{ __('messages.error_loading_slots') }}</option>';
             })
             .finally(() => {
                 slotLoading.classList.add('hidden');
@@ -116,7 +116,7 @@
     function formatTime(timeString) {
         const [hours, minutes] = timeString.split(':');
         const h = parseInt(hours, 10);
-        const ampm = h >= 12 ? 'PM' : 'AM';
+        const ampm = h >= 12 ? '{{ __('messages.pm') }}' : '{{ __('messages.am') }}';
         const h12 = h % 12 || 12;
         return `${h12}:${minutes} ${ampm}`;
     }

@@ -104,12 +104,12 @@
 
                     <div>
                          <label class="block text-sm font-medium text-[#111418] dark:text-gray-300 mb-2">
-                            Follow-up Window (days)
-                            <span class="text-xs text-[#637388] ml-2">Free follow-up period after initial treatment</span>
+                            {{ __('messages.follow_up_window') }}
+                            <span class="text-xs text-[#637388] ml-2">{{ __('messages.follow_up_window_hint') }}</span>
                          </label>
                          <div class="flex items-center gap-4">
                              <input type="number" name="follow_up_window_days" value="{{ $clinic['follow_up_window_days'] ?? 30 }}" min="1" max="365" class="w-32 bg-background-light dark:bg-[#111821] border border-[#e5e7eb] dark:border-[#2d3748] rounded-lg px-4 py-2 text-[#111418] dark:text-white focus:ring-2 focus:ring-primary focus:outline-none">
-                             <span class="text-sm text-[#637388]">days</span>
+                             <span class="text-sm text-[#637388]">{{ __('messages.days') }}</span>
                          </div>
                     </div>
 
@@ -182,7 +182,7 @@
                     </script>
 
                     <div class="pt-6 border-t border-[#e5e7eb] dark:border-[#2d3748] flex justify-end gap-3">
-                        <button type="submit" class="bg-primary text-white font-medium py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors shadow-sm">Save Configuration</button>
+                        <button type="submit" class="bg-primary text-white font-medium py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors shadow-sm">{{ __('messages.save_configuration') }}</button>
                     </div>
                 </div>
              </form>

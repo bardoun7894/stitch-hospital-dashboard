@@ -7,10 +7,12 @@
                 <h1 class="text-2xl font-bold text-text-main-light dark:text-white tracking-tight mb-1">{{ __('messages.patient_records') }}</h1>
                 <p class="text-sm text-text-sub-light dark:text-text-sub-dark">{{ __('messages.manage_patient_files') }}</p>
             </div>
+             @if(\App\Http\Middleware\RoleMiddleware::hasAnyRole(['reception', 'clinic_admin', 'hospital_manager']))
              <a href="{{ route('patients.create') }}" class="bg-primary hover:bg-primary-hover text-white font-medium py-2 px-4 rounded-lg flex items-center justify-center gap-2 transition-all shadow-md shadow-primary/20 hover:shadow-lg active:scale-95">
                 <span class="material-symbols-outlined text-sm">person_add</span>
                 {{ __('messages.new_patient_admission') }}
             </a>
+            @endif
         </div>
 
         <!-- Search Form -->
@@ -36,7 +38,7 @@
                 </div>
                 <div>
                     <p class="text-xs font-bold text-text-sub-light dark:text-text-sub-dark uppercase tracking-wider mb-0.5">{{ __('messages.total_patients') }}</p>
-                    <h3 class="text-2xl font-bold text-text-main-light dark:text-white">12,345</h3>
+                    <h3 class="text-2xl font-bold text-text-main-light dark:text-white">{{ number_format($stats['total'] ?? 0) }}</h3>
                 </div>
             </div>
              <div class="bg-white dark:bg-surface-dark p-6 rounded-2xl border border-border-light dark:border-border-dark shadow-sm flex items-center card-hover group">
@@ -45,7 +47,7 @@
                 </div>
                 <div>
                     <p class="text-xs font-bold text-text-sub-light dark:text-text-sub-dark uppercase tracking-wider mb-0.5">{{ __('messages.new_this_month') }}</p>
-                    <h3 class="text-2xl font-bold text-text-main-light dark:text-white">+452</h3>
+                    <h3 class="text-2xl font-bold text-text-main-light dark:text-white">+{{ number_format($stats['new_this_month'] ?? 0) }}</h3>
                 </div>
             </div>
              <div class="bg-white dark:bg-surface-dark p-6 rounded-2xl border border-border-light dark:border-border-dark shadow-sm flex items-center card-hover group">
@@ -54,7 +56,7 @@
                 </div>
                 <div>
                     <p class="text-xs font-bold text-text-sub-light dark:text-text-sub-dark uppercase tracking-wider mb-0.5">{{ __('messages.pending_insurance') }}</p>
-                    <h3 class="text-2xl font-bold text-text-main-light dark:text-white">28</h3>
+                    <h3 class="text-2xl font-bold text-text-main-light dark:text-white">{{ number_format($stats['pending_insurance'] ?? 0) }}</h3>
                 </div>
             </div>
         </div>
@@ -71,7 +73,7 @@
                         <tr class="bg-background-light dark:bg-white/5 border-b border-border-light dark:border-border-dark">
                             <th class="px-6 py-4 text-[11px] font-bold uppercase tracking-wider text-text-sub-light dark:text-text-sub-dark">{{ __('messages.patient_name') }}</th>
                             <th class="px-6 py-4 text-[11px] font-bold uppercase tracking-wider text-text-sub-light dark:text-text-sub-dark">{{ __('messages.phone') }}</th>
-                            <th class="px-6 py-4 text-[11px] font-bold uppercase tracking-wider text-text-sub-light dark:text-text-sub-dark">National ID</th>
+                            <th class="px-6 py-4 text-[11px] font-bold uppercase tracking-wider text-text-sub-light dark:text-text-sub-dark">{{ __('messages.national_id_label') }}</th>
                             <th class="px-6 py-4 text-[11px] font-bold uppercase tracking-wider text-text-sub-light dark:text-text-sub-dark">{{ __('messages.email') }}</th>
                             <th class="px-6 py-4 text-[11px] font-bold uppercase tracking-wider text-text-sub-light dark:text-text-sub-dark">{{ __('messages.registered') }}</th>
                              <th class="px-6 py-4 text-right text-[11px] font-bold uppercase tracking-wider text-text-sub-light dark:text-text-sub-dark">{{ __('messages.details') }}</th>
@@ -85,7 +87,7 @@
                                     <div class="size-8 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-xs uppercase">
                                         {{ substr($patient['name'], 0, 2) }}
                                     </div>
-                                    <span class="font-semibold text-text-main-light dark:text-white">{{ $patient['name'] }}</span>
+                                    <a href="{{ route('patients.show', $patient['id']) }}" class="font-semibold text-text-main-light dark:text-white hover:text-primary transition-colors">{{ $patient['name'] }}</a>
                                 </div>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-text-sub-light dark:text-text-sub-dark font-medium">

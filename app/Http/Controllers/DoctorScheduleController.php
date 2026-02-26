@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Services\FirebaseService;
+use App\Http\Middleware\RoleMiddleware;
 use Illuminate\Support\Facades\Log;
 
 class DoctorScheduleController extends Controller
@@ -37,9 +38,17 @@ class DoctorScheduleController extends Controller
 
     public function update(Request $request, $doctorId)
     {
+        // Ownership check: doctors can only edit their own schedule
+        $currentUser = RoleMiddleware::getCurrentUser();
+        if (($currentUser['role'] ?? '') === 'doctor' && ($currentUser['doctor_id'] ?? '') !== $doctorId) {
+            abort(403);
+        }
+
         $data = $request->validate([
             'slot_duration' => 'required|integer|min:5|max:60',
             'working_hours' => 'required|array',
+            'duty_days' => 'nullable|array',
+            'duty_month' => 'nullable|string',
         ]);
 
         try {
@@ -59,15 +68,56 @@ class DoctorScheduleController extends Controller
                 ];
             }
 
-            $this->firebase->updateDoctorSchedule($doctorId, [
+            // Build duty_days map keyed by month (e.g., "2026-02")
+            $schedulePayload = [
                 'working_hours' => $transformedHours,
-                'slot_duration' => (int)$data['slot_duration']
-            ]);
+                'slot_duration' => (int)$data['slot_duration'],
+            ];
+
+            if (!empty($data['duty_month'])) {
+                // Merge with existing duty_days so we don't lose other months
+                $doctor = $this->firebase->getDoctorById($doctorId);
+                $existingDutyDays = $doctor['duty_days'] ?? [];
+
+                $dutyDays = !empty($data['duty_days']) ? array_map('intval', $data['duty_days']) : [];
+                $existingDutyDays[$data['duty_month']] = $dutyDays;
+
+                $schedulePayload['duty_days'] = $existingDutyDays;
+            }
+
+            $this->firebase->updateDoctorSchedule($doctorId, $schedulePayload);
 
             return redirect()->back()->with('success', __('messages.schedule_updated'));
         } catch (\Throwable $e) {
             Log::error('Update doctor schedule error: ' . $e->getMessage());
             return redirect()->back()->with('error', __('messages.settings_update_failed'));
+        }
+    }
+
+    public function updateDutyDays(Request $request, $doctorId)
+    {
+        $currentUser = RoleMiddleware::getCurrentUser();
+        if (($currentUser['role'] ?? '') === 'doctor' && ($currentUser['doctor_id'] ?? '') !== $doctorId) {
+            abort(403);
+        }
+
+        $data = $request->validate([
+            'month' => 'required|string|regex:/^\d{4}-\d{2}$/',
+            'days' => 'present|array',
+            'days.*' => 'integer|min:1|max:31',
+        ]);
+
+        try {
+            $doctor = $this->firebase->getDoctorById($doctorId);
+            $existingDutyDays = $doctor['duty_days'] ?? [];
+            $existingDutyDays[$data['month']] = array_map('intval', $data['days']);
+
+            $this->firebase->updateDutyDays($doctorId, $existingDutyDays);
+
+            return response()->json(['success' => true]);
+        } catch (\Throwable $e) {
+            Log::error('Update duty days error: ' . $e->getMessage());
+            return response()->json(['success' => false, 'error' => $e->getMessage()], 500);
         }
     }
 

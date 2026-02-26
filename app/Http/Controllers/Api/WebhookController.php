@@ -357,53 +357,13 @@ class WebhookController extends Controller
      */
     public function createPaymentIntent(Request $request): JsonResponse
     {
-        $validated = $request->validate([
-            'booking_id' => 'required|string',
-            'amount' => 'required|numeric|min:0',
-            'currency' => 'required|string|size:3',
-        ]);
-
-        $stripeSecret = config('services.stripe.secret');
-
-        // Mock mode: when Stripe keys are not configured, simulate payment
-        if (empty($stripeSecret)) {
-            return $this->createMockPaymentIntent($validated);
-        }
-
-        try {
-            Stripe::setApiKey($stripeSecret);
-
-            $paymentIntent = \Stripe\PaymentIntent::create([
-                'amount' => (int)($validated['amount'] * 100), // Convert to cents
-                'currency' => strtolower($validated['currency']),
-                'metadata' => [
-                    'booking_id' => $validated['booking_id'],
-                ],
-                'automatic_payment_methods' => [
-                    'enabled' => true,
-                ],
-            ]);
-
-            return response()->json([
-                'success' => true,
-                'client_secret' => $paymentIntent->client_secret,
-                'payment_intent_id' => $paymentIntent->id,
-            ]);
-        } catch (\Exception $e) {
-            \Log::error('Error creating payment intent: ' . $e->getMessage());
-
-            return response()->json([
-                'success' => false,
-                'error' => __('messages.payment_intent_failed'),
-            ], 500);
-        }
+        return response()->json([
+            "success" => false,
+            "message" => "Payment method not available",
+        ], 501);
     }
 
-    /**
-     * Create a mock payment intent when Stripe is not configured.
-     * Simulates a successful payment and immediately confirms the booking.
-     */
-    protected function createMockPaymentIntent(array $validated): JsonResponse
+        protected function createMockPaymentIntent(array $validated): JsonResponse
     {
         $bookingId = $validated['booking_id'];
         $mockIntentId = 'mock_pi_' . uniqid();

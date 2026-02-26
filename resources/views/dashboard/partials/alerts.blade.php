@@ -24,7 +24,7 @@
             <div class="flex justify-between items-start mb-2">
                 <div class="flex items-center gap-2 text-{{ $color }}-600 dark:text-{{ $color }}-400">
                     <span class="material-symbols-outlined text-lg">{{ $icon }}</span>
-                    <span class="text-[10px] font-bold uppercase tracking-wide">{{ ucfirst($alert['type']) }}</span>
+                    <span class="text-[10px] font-bold uppercase tracking-wide">{{ __('messages.' . strtolower($alert['type'])) }}</span>
                 </div>
                 <span class="text-[10px] text-text-sub-light dark:text-text-sub-dark font-medium">{{ $alert['time'] }}</span>
             </div>

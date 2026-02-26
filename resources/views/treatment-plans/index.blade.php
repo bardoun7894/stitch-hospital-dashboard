@@ -77,12 +77,30 @@
     </div>
 
     <!-- Add Patient Modal -->
-    <div x-show="showAddModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-black/50" @click.self="showAddModal = false">
+    <div x-show="showAddModal" x-cloak style="display:none" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50" @click.self="showAddModal = false">
         <div class="bg-white dark:bg-[#1a2027] rounded-2xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden" @click.stop>
             <div class="p-6 border-b border-[#e5e7eb] dark:border-[#2d3748]">
                 <h3 class="text-lg font-bold text-[#111418] dark:text-white">{{ __('messages.add_to_treatment_plan') }}</h3>
             </div>
             <div class="p-6 space-y-4">
+                <!-- Today's Patients Quick Select -->
+                @if(!empty($todaysPatients))
+                <div x-show="!selectedPatient">
+                    <label class="block text-sm font-medium text-[#637388] dark:text-gray-400 mb-1">
+                        <span class="material-symbols-outlined text-sm align-middle me-1">today</span>
+                        {{ __('messages.todays_patients') }}
+                    </label>
+                    <div class="flex flex-wrap gap-2">
+                        @foreach($todaysPatients as $tp)
+                        <button type="button" @click="selectPatient({ id: '{{ $tp['id'] }}', name: '{{ addslashes($tp['name']) }}', phone: '{{ $tp['phone'] }}' })" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 border border-indigo-200 dark:border-indigo-800 transition-colors">
+                            <span class="material-symbols-outlined text-sm">person</span>
+                            {{ $tp['name'] }}
+                        </button>
+                        @endforeach
+                    </div>
+                </div>
+                @endif
+
                 <!-- Patient Search -->
                 <div>
                     <label class="block text-sm font-medium text-[#637388] dark:text-gray-400 mb-1">{{ __('messages.search_patients') }}</label>
@@ -115,27 +133,23 @@
                     </div>
                 </div>
 
-                <!-- Doctor Select (for clinic_admin/reception) -->
+                <!-- Doctor Name (fixed - current logged-in doctor) -->
                 <div>
                     <label class="block text-sm font-medium text-[#637388] dark:text-gray-400 mb-1">{{ __('messages.doctor_name') }}</label>
-                    <select x-model="doctorId" class="w-full h-10 px-3 rounded-lg border border-[#e5e7eb] dark:border-[#4a5568] bg-white dark:bg-[#2d3748] text-sm text-[#111418] dark:text-white focus:ring-2 focus:ring-primary/50">
-                        <option value="">{{ __('messages.select_doctor') }}</option>
-                        @php
-                            $doctors = app(\App\Services\FirebaseService::class)->getDoctors();
-                        @endphp
-                        @foreach($doctors as $doctor)
-                        <option value="{{ $doctor['id'] }}">{{ $doctor['name'] }} — {{ $doctor['specialty'] ?? '' }}</option>
-                        @endforeach
-                    </select>
+                    <div class="w-full h-10 px-3 flex items-center rounded-lg border border-[#e5e7eb] dark:border-[#4a5568] bg-[#f8fafc] dark:bg-[#2d3748] text-sm text-[#111418] dark:text-white">
+                        <span class="material-symbols-outlined text-sm text-[#637388] me-2">person</span>
+                        {{ $currentUser['name'] ?? '' }}
+                    </div>
                 </div>
 
-                <!-- Clinic ID (hidden, populated from doctor selection) -->
+                <!-- Doctor ID & Clinic ID (hidden, auto-set from current user) -->
+                <input type="hidden" x-model="doctorId">
                 <input type="hidden" x-model="clinicId">
 
                 <!-- Diagnosis -->
                 <div>
                     <label class="block text-sm font-medium text-[#637388] dark:text-gray-400 mb-1">{{ __('messages.diagnosis') }}</label>
-                    <input x-model="diagnosis" type="text" class="w-full h-10 px-3 rounded-lg border border-[#e5e7eb] dark:border-[#4a5568] bg-white dark:bg-[#2d3748] text-sm text-[#111418] dark:text-white focus:ring-2 focus:ring-primary/50" placeholder="{{ __('messages.diagnosis_placeholder') }}">
+                    <input x-model="diagnosis" type="text" class="w-full h-10 px-3 rounded-lg border border-[#e5e7eb] dark:border-[#4a5568] bg-white dark:bg-[#2d3748] text-sm text-[#111418] dark:text-white focus:ring-2 focus:ring-primary/50">
                 </div>
 
                 <!-- Notes -->
@@ -148,7 +162,7 @@
                 <button @click="showAddModal = false" class="h-10 px-4 bg-gray-100 dark:bg-[#2d3748] text-[#637388] dark:text-gray-400 text-sm font-medium rounded-lg hover:bg-gray-200 dark:hover:bg-[#384455] transition-colors">
                     {{ __('messages.cancel') }}
                 </button>
-                <button @click="submitPlan()" :disabled="!selectedPatient || !doctorId || !diagnosis" class="h-10 px-4 bg-primary hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-bold rounded-lg shadow-sm transition-colors">
+                <button @click="submitPlan()" :disabled="!selectedPatient || !diagnosis" class="h-10 px-4 bg-primary hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-bold rounded-lg shadow-sm transition-colors">
                     {{ __('messages.save') }}
                 </button>
             </div>
@@ -157,21 +171,14 @@
 </main>
 
 <script>
-// Doctor clinic mapping
-const doctorClinicMap = {
-    @foreach($doctors ?? [] as $doctor)
-    '{{ $doctor['id'] }}': '{{ $doctor['clinic_id'] ?? '' }}',
-    @endforeach
-};
-
 function treatmentPlansPage() {
     return {
         showAddModal: false,
         searchQuery: '',
         searchResults: [],
         selectedPatient: null,
-        doctorId: '',
-        clinicId: '',
+        doctorId: '{{ $currentUser['doctor_id'] ?? '' }}',
+        clinicId: '{{ $currentUser['clinic_id'] ?? '' }}',
         diagnosis: '',
         notes: '',
 
@@ -200,8 +207,6 @@ function treatmentPlansPage() {
 
         async submitPlan() {
             if (!this.selectedPatient || !this.doctorId || !this.diagnosis) return;
-
-            this.clinicId = doctorClinicMap[this.doctorId] || '';
 
             try {
                 const response = await fetch('/treatment-plans', {

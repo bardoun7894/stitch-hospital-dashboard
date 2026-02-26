@@ -15,7 +15,7 @@
 
     @if(session('error'))
     <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
-        <strong class="font-bold">Error!</strong>
+        <strong class="font-bold">{{ __('messages.error_msg') }}</strong>
         <span class="block sm:inline">{{ session('error') }}</span>
     </div>
     @endif
@@ -35,7 +35,9 @@
                     @endforeach
                 </select>
                 <div class="mt-2 text-right">
+                    @if(\App\Http\Middleware\RoleMiddleware::hasAnyRole(['reception', 'clinic_admin', 'hospital_manager', 'super_admin']))
                     <a href="{{ route('patients.create') }}" class="text-sm text-primary hover:underline">{{ __('messages.register_new_patient') }}</a>
+                    @endif
                 </div>
             </div>
 
@@ -129,12 +131,12 @@
                     });
                     timeSlotSelect.disabled = false;
                 } else {
-                    timeSlotSelect.innerHTML = '<option value="">No slots available</option>';
+                    timeSlotSelect.innerHTML = '<option value="">{{ __('messages.no_slots_available') }}</option>';
                 }
             })
             .catch(error => {
                 console.error('Error fetching slots:', error);
-                timeSlotSelect.innerHTML = '<option value="">Error loading slots</option>';
+                timeSlotSelect.innerHTML = '<option value="">{{ __('messages.error_loading_slots') }}</option>';
             })
             .finally(() => {
                 slotLoading.classList.add('hidden');

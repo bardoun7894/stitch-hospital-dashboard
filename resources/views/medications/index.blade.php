@@ -99,9 +99,11 @@
                                         <button onclick="viewPrescription('{{ $prescription['id'] }}')" class="bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/20 dark:hover:bg-blue-900/40 text-blue-600 dark:text-blue-400 p-1.5 rounded-md transition-colors" title="{{ __('messages.view_details') }}">
                                             <span class="material-symbols-outlined text-lg">visibility</span>
                                         </button>
+                                        @if(($prescription['doctor_id'] ?? '') === ($currentUser['doctor_id'] ?? '__none__'))
                                         <button onclick="deletePrescription('{{ $prescription['id'] }}')" class="bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/40 text-red-600 dark:text-red-400 p-1.5 rounded-md transition-colors" title="{{ __('messages.delete') }}">
                                             <span class="material-symbols-outlined text-lg">delete</span>
                                         </button>
+                                        @endif
                                     </div>
                                 </td>
                             </tr>
@@ -121,13 +123,31 @@
     </div>
 
     <!-- Add Prescription Modal -->
-    <div x-show="showAddModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-black/50" @click.self="showAddModal = false">
+    <div x-show="showAddModal" x-cloak style="display:none" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50" @click.self="showAddModal = false">
         <div class="bg-white dark:bg-[#1a2027] rounded-2xl shadow-2xl w-full max-w-2xl mx-4 max-h-[90vh] flex flex-col overflow-hidden" @click.stop>
             <div class="p-6 border-b border-[#e5e7eb] dark:border-[#2d3748] shrink-0">
                 <h3 class="text-lg font-bold text-[#111418] dark:text-white">{{ __('messages.add_prescription') }}</h3>
                 <p class="text-sm text-[#637388] dark:text-gray-400 mt-1">{{ __('messages.prescription_form_hint') }}</p>
             </div>
             <div class="p-6 space-y-4 overflow-y-auto flex-1">
+                <!-- Today's Patients Quick Select -->
+                @if(!empty($todaysPatients))
+                <div x-show="!selectedPatient">
+                    <label class="block text-sm font-medium text-[#637388] dark:text-gray-400 mb-1">
+                        <span class="material-symbols-outlined text-sm align-middle me-1">today</span>
+                        {{ __('messages.todays_patients') }}
+                    </label>
+                    <div class="flex flex-wrap gap-2">
+                        @foreach($todaysPatients as $tp)
+                        <button type="button" @click="selectPatient({ id: '{{ $tp['id'] }}', name: '{{ addslashes($tp['name']) }}', phone: '{{ $tp['phone'] }}' })" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 border border-indigo-200 dark:border-indigo-800 transition-colors">
+                            <span class="material-symbols-outlined text-sm">person</span>
+                            {{ $tp['name'] }}
+                        </button>
+                        @endforeach
+                    </div>
+                </div>
+                @endif
+
                 <!-- Patient Search -->
                 <div>
                     <label class="block text-sm font-medium text-[#637388] dark:text-gray-400 mb-1">{{ __('messages.search_patients') }}</label>
@@ -160,18 +180,17 @@
                     </div>
                 </div>
 
-                <!-- Doctor Select -->
+                <!-- Doctor Name (fixed - current logged-in doctor) -->
                 <div>
                     <label class="block text-sm font-medium text-[#637388] dark:text-gray-400 mb-1">{{ __('messages.doctor_name') }}</label>
-                    <select x-model="doctorId" class="w-full h-10 px-3 rounded-lg border border-[#e5e7eb] dark:border-[#4a5568] bg-white dark:bg-[#2d3748] text-sm text-[#111418] dark:text-white focus:ring-2 focus:ring-primary/50">
-                        <option value="">{{ __('messages.select_doctor') }}</option>
-                        @foreach($doctors ?? [] as $doctor)
-                        <option value="{{ $doctor['id'] }}">{{ $doctor['name'] }} — {{ $doctor['specialty'] ?? '' }}</option>
-                        @endforeach
-                    </select>
+                    <div class="w-full h-10 px-3 flex items-center rounded-lg border border-[#e5e7eb] dark:border-[#4a5568] bg-[#f8fafc] dark:bg-[#2d3748] text-sm text-[#111418] dark:text-white">
+                        <span class="material-symbols-outlined text-sm text-[#637388] me-2">person</span>
+                        {{ $currentUser['name'] ?? '' }}
+                    </div>
                 </div>
 
-                <!-- Clinic ID (hidden, populated from doctor selection) -->
+                <!-- Doctor ID & Clinic ID (hidden, auto-set from current user) -->
+                <input type="hidden" x-model="doctorId">
                 <input type="hidden" x-model="clinicId">
 
                 <!-- Medications Section -->
@@ -195,7 +214,7 @@
                                 <!-- Medication Name -->
                                 <div class="md:col-span-2">
                                     <label class="block text-xs font-medium text-[#637388] dark:text-gray-400 mb-1" x-text="'{{ __('messages.medication_name') }} ' + (index + 1)"></label>
-                                    <input x-model="med.name" type="text" class="w-full h-9 px-3 rounded-lg border border-[#e5e7eb] dark:border-[#4a5568] bg-white dark:bg-[#2d3748] text-sm text-[#111418] dark:text-white focus:ring-2 focus:ring-primary/50" placeholder="{{ __('messages.medication_name_placeholder') }}">
+                                    <input x-model="med.name" type="text" class="w-full h-9 px-3 rounded-lg border border-[#e5e7eb] dark:border-[#4a5568] bg-white dark:bg-[#2d3748] text-sm text-[#111418] dark:text-white focus:ring-2 focus:ring-primary/50">
                                 </div>
 
                                 <!-- Duration Days -->
@@ -227,6 +246,7 @@
                                         <option value="mg">{{ __('messages.unit_mg') }}</option>
                                         <option value="drop">{{ __('messages.unit_drop') }}</option>
                                         <option value="spoon">{{ __('messages.unit_spoon') }}</option>
+                                        <option value="suppository">{{ __('messages.unit_suppository') }}</option>
                                     </select>
                                 </div>
 
@@ -264,7 +284,7 @@
     </div>
 
     <!-- View Prescription Detail Modal -->
-    <div x-show="showDetailModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-black/50" @click.self="showDetailModal = false">
+    <div x-show="showDetailModal" x-cloak style="display:none" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50" @click.self="showDetailModal = false">
         <div class="bg-white dark:bg-[#1a2027] rounded-2xl shadow-2xl w-full max-w-lg mx-4 max-h-[80vh] flex flex-col overflow-hidden" @click.stop>
             <div class="p-6 border-b border-[#e5e7eb] dark:border-[#2d3748] shrink-0">
                 <h3 class="text-lg font-bold text-[#111418] dark:text-white">{{ __('messages.prescription_details') }}</h3>
@@ -319,13 +339,6 @@
 </main>
 
 <script>
-// Doctor clinic mapping
-const doctorClinicMap = {
-    @foreach($doctors ?? [] as $doctor)
-    '{{ $doctor['id'] }}': '{{ $doctor['clinic_id'] ?? '' }}',
-    @endforeach
-};
-
 function medicationsPage() {
     return {
         showAddModal: false,
@@ -334,15 +347,15 @@ function medicationsPage() {
         searchQuery: '',
         searchResults: [],
         selectedPatient: null,
-        doctorId: '',
-        clinicId: '',
+        doctorId: '{{ $currentUser['doctor_id'] ?? '' }}',
+        clinicId: '{{ $currentUser['clinic_id'] ?? '' }}',
         notes: '',
         medications: [
             { name: '', duration_days: 3, interval_hours: 8, dose_amount: '', dose_unit: 'pill', first_dose_time: '08:00' }
         ],
 
         get canSubmit() {
-            if (!this.selectedPatient || !this.doctorId) return false;
+            if (!this.selectedPatient) return false;
             return this.medications.every(med =>
                 med.name && med.duration_days > 0 && med.interval_hours > 0 && med.dose_amount && med.first_dose_time
             );
@@ -364,8 +377,6 @@ function medicationsPage() {
             this.searchQuery = '';
             this.searchResults = [];
             this.selectedPatient = null;
-            this.doctorId = '';
-            this.clinicId = '';
             this.notes = '';
             this.medications = [
                 { name: '', duration_days: 3, interval_hours: 8, dose_amount: '', dose_unit: 'pill', first_dose_time: '08:00' }
@@ -417,8 +428,6 @@ function medicationsPage() {
         async submitPrescription() {
             if (!this.canSubmit) return;
 
-            this.clinicId = doctorClinicMap[this.doctorId] || '';
-
             try {
                 const response = await fetch('/medications', {
                     method: 'POST',
@@ -459,7 +468,8 @@ async function viewPrescription(id) {
         const data = await response.json();
 
         if (data.success) {
-            const page = document.querySelector('[x-data]').__x.$data;
+            const el = document.querySelector('[x-data]');
+            const page = el._x_dataStack[0];
             page.detailPrescription = data.data;
             page.showDetailModal = true;
         } else {

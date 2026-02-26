@@ -74,6 +74,25 @@ class MobileProfileController extends Controller
         try {
             $profile = $this->firebaseService->getUserProfile($userId);
 
+            // Include medical info fields if they exist on the patient document
+            $medicalFields = [];
+            if (isset($profile['allergies'])) {
+                $medicalFields['allergies'] = $profile['allergies'];
+            }
+            if (isset($profile['chronic_conditions'])) {
+                $medicalFields['chronic_conditions'] = $profile['chronic_conditions'];
+            }
+            if (isset($profile['emergency_contact'])) {
+                $medicalFields['emergency_contact'] = $profile['emergency_contact'];
+            }
+            if (isset($profile['medical_notes'])) {
+                $medicalFields['medical_notes'] = $profile['medical_notes'];
+            }
+
+            if (!empty($medicalFields)) {
+                $profile['medical_info'] = $medicalFields;
+            }
+
             return response()->json([
                 'success' => true,
                 'data' => $profile

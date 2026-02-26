@@ -1,5 +1,29 @@
 @import 'tailwindcss';
 
+@font-face {
+    font-family: 'ITF Qomra Arabic';
+    src: url('../fonts/itfQomraArabic-Regular.otf') format('opentype');
+    font-weight: normal;
+    font-style: normal;
+}
+
+@font-face {
+    font-family: 'ITF Qomra Arabic';
+    src: url('../fonts/itfQomraArabic-Bold.otf') format('opentype');
+    font-weight: bold;
+    font-style: normal;
+}
+
+@font-face {
+    font-family: 'ITF Qomra Arabic';
+    src: url('../fonts/itfQomraArabic-Light.otf') format('opentype');
+    font-weight: 300;
+    font-style: normal;
+}
+
+
+@variant dark (&:where(.dark, .dark *));
+
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 @source '../../storage/framework/views/*.php';
 @source '../**/*.blade.php';
@@ -7,43 +31,88 @@
 
 @theme {
     /* Fonts */
-    --font-display: 'Inter', 'Cairo', ui-sans-serif, system-ui, sans-serif;
-    --font-sans: 'Inter', 'Cairo', ui-sans-serif, system-ui, sans-serif;
+    --font-display: 'ITF Qomra Arabic', 'Inter', 'Cairo', ui-sans-serif, system-ui, sans-serif;
+    --font-sans: 'ITF Qomra Arabic', 'Inter', 'Cairo', ui-sans-serif, system-ui, sans-serif;
 
     /* Custom Colors - Premium Indigo/Slate Theme */
-    --color-primary: #4f46e5; /* Indigo-600 */
-    --color-primary-hover: #4338ca; /* Indigo-700 */
-    --color-primary-light: #e0e7ff; /* Indigo-100 */
+    --color-primary: #4f46e5;
+    /* Indigo-600 */
+    --color-primary-hover: #4338ca;
+    /* Indigo-700 */
+    --color-primary-light: #e0e7ff;
+    /* Indigo-100 */
 
-    --color-background-light: #f8fafc; /* Slate-50 */
-    --color-background-dark: #0f172a; /* Slate-900 */
+    --color-background-light: #f8fafc;
+    /* Slate-50 */
+    --color-background-dark: #0f172a;
+    /* Slate-900 */
 
     --color-surface-light: #ffffff;
-    --color-surface-dark: #1e293b; /* Slate-800 */
+    --color-surface-dark: #1e293b;
+    /* Slate-800 */
 
-    --color-text-main-light: #0f172a; /* Slate-900 */
-    --color-text-main-dark: #f8fafc; /* Slate-50 */
+    --color-text-main-light: #0f172a;
+    /* Slate-900 */
+    --color-text-main-dark: #f8fafc;
+    /* Slate-50 */
 
-    --color-text-sub-light: #64748b; /* Slate-500 */
-    --color-text-sub-dark: #94a3b8; /* Slate-400 */
+    --color-text-sub-light: #64748b;
+    /* Slate-500 */
+    --color-text-sub-dark: #94a3b8;
+    /* Slate-400 */
 
-    --color-border-light: #e2e8f0; /* Slate-200 */
-    --color-border-dark: #334155; /* Slate-700 */
+    --color-border-light: #e2e8f0;
+    /* Slate-200 */
+    --color-border-dark: #334155;
+    /* Slate-700 */
 
-    --color-alert-red: #ef4444;    /* Red-500 */
-    --color-alert-amber: #f59e0b;  /* Amber-500 */
-    --color-success-green: #10b981; /* Emerald-500 */
+    --color-alert-red: #ef4444;
+    /* Red-500 */
+    --color-alert-amber: #f59e0b;
+    /* Amber-500 */
+    --color-success-green: #10b981;
+    /* Emerald-500 */
 }
 
-/* Custom Utilities */
-@utility glass {
-    @apply backdrop-blur-md bg-white/80 dark:bg-[#1e293b]/80;
-}
+/* Glass util removed */
+
 
 @utility card-hover {
-    @apply transition-all duration-300 hover:shadow-lg hover:-translate-y-1;
+    @apply transition-all duration-300 hover:shadow-2xl hover:-translate-y-1 hover:bg-white dark:hover:bg-[#1e293b];
 }
 
 @utility icon-box {
-    @apply flex items-center justify-center rounded-lg transition-colors;
+    @apply flex items-center justify-center rounded-xl transition-all duration-300;
+}
+
+@utility animate-float {
+    animation: float 6s ease-in-out infinite;
+}
+
+@keyframes float {
+
+    0%,
+    100% {
+        transform: translateY(0);
+    }
+
+    50% {
+        transform: translateY(-10px);
+    }
+}
+
+@utility animate-fade-in-up {
+    animation: fadeInUp 0.5s ease-out forwards;
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translate3d(0, 20px, 0);
+    }
+
+    to {
+        opacity: 1;
+        transform: translate3d(0, 0, 0);
+    }
 }

@@ -36,9 +36,17 @@ class QueueController extends Controller
     {
         try {
             $currentUser = RoleMiddleware::getCurrentUser();
+            $role = $currentUser['role'] ?? 'patient';
+            $hospitalId = $currentUser['hospital_id'] ?? null;
             $clinicId = $request->query('clinic_id') ?: ($currentUser['clinic_id'] ?? null);
 
-            $cacheKey = 'queue_data_' . ($clinicId ?? 'all');
+            // Hospital manager: default to first hospital clinic if no clinic selected
+            if ($role === 'hospital_manager' && $hospitalId && !$clinicId) {
+                $clinics = $this->firebaseService->getClinicsForHospital($hospitalId);
+                $clinicId = !empty($clinics) ? ($clinics[0]['id'] ?? null) : null;
+            }
+
+            $cacheKey = 'queue_data_' . ($clinicId ?? 'all') . "_{$role}";
             $queueData = Cache::remember($cacheKey, 60, function () use ($clinicId) {
                 return $this->firebaseService->getQueueData($clinicId);
             });

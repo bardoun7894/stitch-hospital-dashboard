@@ -87,31 +87,187 @@ class BookingsController extends Controller
     {
         $currentUser = RoleMiddleware::getCurrentUser();
         $role = $currentUser['role'] ?? 'patient';
-        $clinicId = $request->query('clinic_id') ?: ($currentUser['clinic_id'] ?? null);
+        $hospitalId = $currentUser['hospital_id'] ?? null;
+        $userClinicId = $currentUser['clinic_id'] ?? null;
+        $clinicId = $request->query('clinic_id') ?: $userClinicId;
+
+        // Doctor sees only their own bookings
+        if ($role === 'doctor') {
+            $doctorId = $currentUser['doctor_id'] ?? null;
+            $today = date('Y-m-d');
+            $doctorBookings = $doctorId ? $this->firebaseService->getBookingsForDoctor($doctorId, $today) : [];
+
+            // Build a minimal data structure compatible with bookings.index view
+            $queueState = ($userClinicId && $doctorId)
+                ? $this->firebaseService->getDoctorQueueState($userClinicId, $doctorId, $today)
+                : ['now_serving' => 0, 'last_issued' => 0, 'is_paused' => false, 'remaining' => 0];
+
+            $formattedBookings = [];
+            $statusCounts = ['pending' => 0, 'accepted' => 0, 'confirmed' => 0, 'arrived' => 0, 'completed' => 0, 'cancelled' => 0, 'noShow' => 0];
+            foreach ($doctorBookings as $b) {
+                $rawStatus = $b['status'] ?? 'pending';
+                $displayStatus = match($rawStatus) {
+                    'pending' => 'Pending',
+                    'acceptedAwaitingPayment' => 'Accepted',
+                    'confirmed' => 'Confirmed',
+                    'arrived' => 'Arrived',
+                    'completed' => 'Completed',
+                    'cancelledByClinic', 'cancelled' => 'Cancelled',
+                    'noShow', 'skipped' => 'No Show',
+                    default => ucfirst($rawStatus),
+                };
+                $color = match($rawStatus) {
+                    'confirmed' => 'blue',
+                    'arrived' => 'green',
+                    'pending' => 'yellow',
+                    'acceptedAwaitingPayment' => 'blue',
+                    'completed' => 'green',
+                    default => 'gray',
+                };
+
+                // Count statuses
+                $countKey = match($rawStatus) {
+                    'pending' => 'pending',
+                    'acceptedAwaitingPayment' => 'accepted',
+                    'confirmed' => 'confirmed',
+                    'arrived' => 'arrived',
+                    'completed' => 'completed',
+                    'cancelledByClinic', 'cancelled' => 'cancelled',
+                    'noShow', 'skipped' => 'noShow',
+                    default => 'pending',
+                };
+                $statusCounts[$countKey] = ($statusCounts[$countKey] ?? 0) + 1;
+
+                $scheduledDate = $b['scheduled_date'] ?? null;
+                $timeDisplay = '';
+                if ($scheduledDate instanceof \Google\Cloud\Core\Timestamp) {
+                    $timeDisplay = $scheduledDate->get()->format('h:i A');
+                }
+
+                $formattedBookings[] = [
+                    'id' => $b['id'] ?? '',
+                    'token' => $b['token_number'] ?? '-',
+                    'patient' => $b['patient_name'] ?? '-',
+                    'avatar' => 'https://ui-avatars.com/api/?name=' . urlencode($b['patient_name'] ?? 'P') . '&background=e5e7eb&color=111418&size=32',
+                    'type' => $b['type'] ?? '-',
+                    'status' => $displayStatus,
+                    'color' => $color,
+                    'time' => $timeDisplay,
+                    'is_followup' => $b['is_followup'] ?? false,
+                    'payment_status' => $b['payment_status'] ?? null,
+                    'payment_note' => $b['payment_note'] ?? '',
+                    'is_arrived' => $rawStatus === 'arrived',
+                ];
+            }
+
+            $data = [
+                'bookings' => $formattedBookings,
+                'status_counts' => $statusCounts,
+                'queue_state' => [
+                    'clinic_id' => $userClinicId ?? '',
+                    'doctor_id' => $doctorId ?? '',
+                    'date' => $today,
+                    'is_paused' => $queueState['is_paused'] ?? false,
+                ],
+                'current_serving' => [
+                    'token' => $queueState['now_serving'] ?? '00',
+                    'patient' => __('messages.waiting_text'),
+                    'type' => '-',
+                    'id' => '',
+                ],
+                'next_up' => [],
+                'skipped' => [],
+            ];
+
+            return view('bookings.index', [
+                'data' => $data,
+                'clinics' => [],
+                'selectedClinicId' => $userClinicId,
+            ]);
+        }
 
         // Cache the clinic list separately (changes infrequently)
-        $clinicsCacheKey = 'bookings_clinics_' . md5("{$role}_{$clinicId}");
-        $clinics = Cache::remember($clinicsCacheKey, 300, function () use ($role, $clinicId) {
-            if (in_array($role, ['super_admin', 'hospital_manager'])) {
+        $clinicsCacheKey = 'bookings_clinics_' . md5("{$role}_{$hospitalId}_{$userClinicId}");
+        $clinics = Cache::remember($clinicsCacheKey, 300, function () use ($role, $hospitalId, $userClinicId) {
+            if ($role === 'super_admin') {
                 return $this->firebaseService->getClinics();
-            } elseif ($clinicId) {
-                $clinic = $this->firebaseService->getClinic($clinicId);
+            } elseif ($role === 'hospital_manager' && $hospitalId) {
+                return $this->firebaseService->getClinicsForHospital($hospitalId);
+            } elseif ($userClinicId) {
+                $clinic = $this->firebaseService->getClinic($userClinicId);
                 return $clinic ? [$clinic] : [];
             } else {
                 return $this->firebaseService->getClinics();
             }
         });
 
+        // For hospital_manager without specific clinic selected, use first hospital clinic
+        if ($role === 'hospital_manager' && $hospitalId && !$clinicId && !empty($clinics)) {
+            $clinicId = $clinics[0]['id'] ?? null;
+        }
+
         // Queue data is time-sensitive, use a short cache TTL
-        $dataCacheKey = 'bookings_queue_data_' . md5($clinicId ?? 'all');
+        $dataCacheKey = 'bookings_queue_data_' . md5(($clinicId ?? 'all') . "_{$role}_{$hospitalId}");
         $data = Cache::remember($dataCacheKey, 60, function () use ($clinicId) {
             return $this->firebaseService->getQueueData($clinicId);
         });
+
+        // Build per-doctor booking counts for reception/clinic_admin/hospital_manager
+        $doctorsToday = [];
+        if (in_array($role, ['reception', 'clinic_admin', 'hospital_manager', 'super_admin']) && !empty($data['bookings'])) {
+            $doctorsCacheKey = 'bookings_doctors_list_' . md5(($clinicId ?? 'all') . "_{$role}_{$hospitalId}");
+            $doctorsList = Cache::remember($doctorsCacheKey, 300, function () use ($clinicId, $role, $hospitalId) {
+                if ($clinicId) {
+                    return $this->firebaseService->getDoctors($clinicId);
+                } elseif ($role === 'hospital_manager' && $hospitalId) {
+                    return $this->firebaseService->getDoctorsForHospital($hospitalId);
+                }
+                return $this->firebaseService->getDoctors();
+            });
+
+            // Build a name lookup from doctor list
+            $doctorNames = [];
+            foreach ($doctorsList as $doc) {
+                $doctorNames[$doc['id']] = $doc['name'] ?? $doc['id'];
+            }
+
+            // Count bookings per doctor (online vs walk-in)
+            $doctorCounts = [];
+            foreach ($data['bookings'] as $booking) {
+                $did = $booking['doctor_id'] ?? '';
+                if (empty($did)) continue;
+                if (!isset($doctorCounts[$did])) {
+                    $doctorCounts[$did] = ['online' => 0, 'walkin' => 0, 'total' => 0];
+                }
+                $type = strtolower($booking['type'] ?? '');
+                if (str_contains($type, 'walk') || str_contains($type, 'حضور')) {
+                    $doctorCounts[$did]['walkin']++;
+                } else {
+                    $doctorCounts[$did]['online']++;
+                }
+                $doctorCounts[$did]['total']++;
+            }
+
+            // Build final array with doctor names
+            foreach ($doctorCounts as $did => $counts) {
+                $doctorsToday[] = [
+                    'id' => $did,
+                    'name' => $doctorNames[$did] ?? $did,
+                    'online' => $counts['online'],
+                    'walkin' => $counts['walkin'],
+                    'total' => $counts['total'],
+                ];
+            }
+
+            // Sort by total bookings descending
+            usort($doctorsToday, fn($a, $b) => $b['total'] <=> $a['total']);
+        }
 
         return view('bookings.index', [
             'data' => $data,
             'clinics' => $clinics ?? [],
             'selectedClinicId' => $clinicId,
+            'doctorsToday' => $doctorsToday,
         ]);
     }
 
@@ -120,9 +276,7 @@ class BookingsController extends Controller
      */
     public function pendingBookings(): JsonResponse
     {
-        $pending = Cache::remember('pending_bookings', 30, function () {
-            return $this->firebaseService->getPendingBookings();
-        });
+        $pending = $this->firebaseService->getPendingBookings();
         return response()->json([
             'count' => count($pending),
             'bookings' => $pending,
@@ -298,6 +452,13 @@ class BookingsController extends Controller
                 );
             }
 
+            // Audit log: booking accepted
+            $this->firebaseService->logActivity('booking.accepted', [
+                'booking_id' => $id,
+                'patient_name' => $bookingData['patient_name'] ?? '',
+                'doctor_name' => $bookingData['doctor_name'] ?? '',
+            ]);
+
             $responseData = [
                 'id' => $id,
                 'status' => 'acceptedAwaitingPayment',
@@ -389,6 +550,13 @@ class BookingsController extends Controller
                     ['reason' => $reason]
                 );
             }
+
+            // Audit log: booking rejected
+            $this->firebaseService->logActivity('booking.rejected', [
+                'booking_id' => $id,
+                'patient_name' => $bookingData['patient_name'] ?? '',
+                'reason' => $validated['reason'] ?? '',
+            ]);
 
             return response()->json([
                 'success' => true,
@@ -489,6 +657,13 @@ class BookingsController extends Controller
                 );
             }
             
+            // Audit log: booking confirmed (payment)
+            $this->firebaseService->logActivity('booking.confirmed', [
+                'booking_id' => $id,
+                'patient_name' => $bookingData['patient_name'] ?? '',
+                'token_number' => $newTokenNumber,
+            ]);
+
             return response()->json([
                 'success' => true,
                 'message' => __('messages.payment_confirmed') . ' - ' . __('messages.token_number') . ': ' . $newTokenNumber,
@@ -556,16 +731,58 @@ class BookingsController extends Controller
             ], 500);
         }
     }
+    /**
+     * Record cash payment for a booking at reception.
+     * Changes status from 'acceptedAwaitingPayment' to 'confirmed'.
+     * Assigns a token number and marks payment as cash.
+     *
+     * @param Request $request
+     * @param string $id Booking ID
+     * @return \Illuminate\Http\RedirectResponse
+     */
+    public function confirmCashPayment(Request $request, string $id)
+    {
+        try {
+            $currentUser = RoleMiddleware::getCurrentUser();
+            $confirmedBy = $currentUser['name'] ?? $currentUser['email'] ?? $currentUser['id'] ?? 'staff';
+
+            $tokenNumber = $this->firebaseService->confirmCashPayment($id, $confirmedBy);
+
+            // Send notification to patient
+            $firestore = $this->firebaseService->getFirestore();
+            $bookingDoc = $firestore->collection('bookings')->document($id)->snapshot();
+            if ($bookingDoc->exists()) {
+                $bookingData = $bookingDoc->data();
+                $patientId = $bookingData['patient_id'] ?? null;
+                if ($patientId) {
+                    $doctorName = $bookingData['doctor_name'] ?? 'الطبيب';
+                    $clinicName = $bookingData['clinic_name'] ?? 'العيادة';
+
+                    $this->sendBookingStatusNotification(
+                        $patientId,
+                        $id,
+                        'booking_confirmed',
+                        'تم تأكيد حجزك!',
+                        "رقم دورك: $tokenNumber\n$doctorName - $clinicName\nتم تأكيد الدفع النقدي",
+                        ['token_number' => (string) $tokenNumber]
+                    );
+                }
+            }
+
+            return redirect()->back()->with('success', __('messages.cash_payment_confirmed_token', ['token' => $tokenNumber]));
+        } catch (\Exception $e) {
+            Log::error('Cash payment error: ' . $e->getMessage());
+            return redirect()->back()->with('error', $e->getMessage());
+        }
+    }
+
     public function create()
     {
         $doctors = $this->firebaseService->getDoctors();
-        // We need patients for the dropdown/search
-        $patients = $this->firebaseService->getPatients(); 
-        // Optimization: For many patients, we should use AJAX search. 
-        // For MVP, passing all might be okay or just top 20 + search endpoint.
-        // Let's rely on the search endpoint `patients.index` or just pass empty and expect AJAX.
-        
-        return view('bookings.create', compact('doctors', 'patients'));
+        $patients = $this->firebaseService->getPatients();
+        $selectedDoctorId = request()->query('doctor_id', '');
+
+        return view('bookings.create', compact('doctors', 'patients', 'selectedDoctorId'));
     }
 
     public function store(Request $request)
@@ -706,6 +923,12 @@ class BookingsController extends Controller
              ['path' => 'status', 'value' => 'cancelledByClinic'],
              ['path' => 'updated_at', 'value' => new \Google\Cloud\Core\Timestamp(new \DateTime())],
              ['path' => 'cancellation_reason', 'value' => $request->input('reason', __('messages.admin_cancellation'))]
+         ]);
+
+         // Audit log: booking cancelled
+         $this->firebaseService->logActivity('booking.cancelled', [
+             'booking_id' => $id,
+             'reason' => $request->input('reason', __('messages.admin_cancellation')),
          ]);
 
          return response()->json(['success' => true, 'message' => __('messages.booking_cancelled_msg')]);
